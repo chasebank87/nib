@@ -52,9 +52,9 @@ public struct EditorTextView: NSViewRepresentable {
         scrollView.hasVerticalRuler = true
         scrollView.rulersVisible = settings.showLineNumbers && capabilities.lineNumbers
 
-        let textView = NibTextView(usingTextLayoutManager: true)
+        // TextKit 1 layout is more reliable for attribute-based syntax colors.
+        let textView = NibTextView(frame: NSRect(x: 0, y: 0, width: 800, height: 600))
         textView.delegate = context.coordinator
-        textView.frame = NSRect(x: 0, y: 0, width: 800, height: 600)
         textView.minSize = NSSize(width: 0, height: 0)
         textView.maxSize = NSSize(
             width: CGFloat.greatestFiniteMagnitude,
@@ -64,7 +64,10 @@ public struct EditorTextView: NSViewRepresentable {
         textView.isHorizontallyResizable = true
         textView.autoresizingMask = [.width]
         textView.textContainerInset = NSSize(width: 10, height: 8)
-        textView.isRichText = false
+        // Rich text must be on for per-token foreground colors; keep it plain otherwise.
+        textView.isRichText = true
+        textView.importsGraphics = false
+        textView.allowsImageEditing = false
         textView.usesFontPanel = false
         textView.usesFindBar = true
         textView.allowsUndo = true
@@ -81,7 +84,7 @@ public struct EditorTextView: NSViewRepresentable {
         context.coordinator.ruler = ruler
 
         applyChrome(to: textView, scrollView: scrollView)
-        applySyntax(to: textView)
+        applySyntax(to: textView, force: true, coordinator: context.coordinator)
         return scrollView
     }
 
@@ -94,12 +97,17 @@ public struct EditorTextView: NSViewRepresentable {
         let showRuler = settings.showLineNumbers && capabilities.lineNumbers
         scrollView.rulersVisible = showRuler
         scrollView.hasVerticalRuler = showRuler
+
+        var textChanged = false
         if textView.string != text {
             let selected = textView.selectedRanges
+            context.coordinator.isApplyingExternalText = true
             textView.string = text
             textView.selectedRanges = selected
+            context.coordinator.isApplyingExternalText = false
+            textChanged = true
         }
-        applySyntax(to: textView)
+        applySyntax(to: textView, force: textChanged, coordinator: context.coordinator)
         context.coordinator.ruler?.needsDisplay = true
 
         if let offset = pendingCaretUTF16 {
@@ -137,25 +145,24 @@ public struct EditorTextView: NSViewRepresentable {
         textView.nibInsertSpaces = settings.insertSpaces
         textView.nibTabWidth = settings.tabWidth
         textView.backgroundColor = background
+        textView.drawsBackground = true
         textView.insertionPointColor = theme.nsColor(.cursor)
         textView.selectedTextAttributes = [
             .backgroundColor: theme.nsColor(.selection),
             .foregroundColor: foreground,
         ]
-        textView.textColor = foreground
-        textView.font = font
-        textView.defaultParagraphStyle = paragraph
         textView.typingAttributes = [
             .font: font,
             .foregroundColor: foreground,
             .paragraphStyle: paragraph,
             .ligature: settings.ligatures ? 1 : 0,
         ]
+        textView.defaultParagraphStyle = paragraph
         textView.isHorizontallyResizable = wrapLines == false
         textView.textContainer?.widthTracksTextView = wrapLines
         if wrapLines {
             textView.textContainer?.containerSize = NSSize(
-                width: scrollView.contentSize.width,
+                width: max(scrollView.contentSize.width, 1),
                 height: CGFloat.greatestFiniteMagnitude
             )
             textView.autoresizingMask = [.width]
@@ -171,42 +178,74 @@ public struct EditorTextView: NSViewRepresentable {
         scrollView.drawsBackground = true
     }
 
-    private func applySyntax(to textView: NibTextView) {
+    private func applySyntax(
+        to textView: NibTextView,
+        force: Bool,
+        coordinator: Coordinator
+    ) {
         guard let storage = textView.textStorage else { return }
+        let signature = SyntaxPaintSignature(
+            textUTF16Length: storage.length,
+            themeID: theme.id,
+            captureCount: syntaxCaptures.count,
+            captureFingerprint: syntaxCaptures.first.map(\.utf16Range.lowerBound) ?? -1,
+            lastCaptureEnd: syntaxCaptures.last.map(\.utf16Range.upperBound) ?? -1,
+            findCount: findMatches.count,
+            highlightingEnabled: capabilities.liveHighlighting
+        )
+        guard force || coordinator.lastPaintSignature != signature else { return }
+        coordinator.lastPaintSignature = signature
+
         let full = NSRange(location: 0, length: storage.length)
         let foreground = theme.nsColor(.editorForeground)
         let font = Self.font(from: settings)
+        let paragraph = (textView.defaultParagraphStyle as? NSMutableParagraphStyle)
+            ?? NSMutableParagraphStyle()
+
         storage.beginEditing()
-        storage.addAttributes(
-            [
-                .foregroundColor: foreground,
-                .font: font,
-                .backgroundColor: NSColor.clear,
-            ],
-            range: full
-        )
-        if capabilities.liveHighlighting {
-            for capture in syntaxCaptures {
-                guard let token = theme.token(forSyntaxScope: capture.scope) else { continue }
-                let location = capture.utf16Range.lowerBound
-                let length = capture.utf16Range.count
+        if full.length > 0 {
+            storage.setAttributes(
+                [
+                    .foregroundColor: foreground,
+                    .font: font,
+                    .paragraphStyle: paragraph,
+                    .ligature: settings.ligatures ? 1 : 0,
+                ],
+                range: full
+            )
+            if capabilities.liveHighlighting {
+                for capture in syntaxCaptures {
+                    guard let token = theme.token(forSyntaxScope: capture.scope) else { continue }
+                    let location = capture.utf16Range.lowerBound
+                    let length = capture.utf16Range.count
+                    guard location >= 0, length > 0, location + length <= storage.length else { continue }
+                    storage.addAttribute(
+                        .foregroundColor,
+                        value: theme.nsColor(token),
+                        range: NSRange(location: location, length: length)
+                    )
+                }
+            }
+            for match in findMatches {
+                let location = match.lowerBound
+                let length = match.count
                 guard location >= 0, length > 0, location + length <= storage.length else { continue }
-                storage.addAttributes(
-                    [.foregroundColor: theme.nsColor(token)],
+                storage.addAttribute(
+                    .backgroundColor,
+                    value: theme.nsColor(.searchMatch),
                     range: NSRange(location: location, length: length)
                 )
             }
         }
-        for match in findMatches {
-            let location = match.lowerBound
-            let length = match.count
-            guard location >= 0, length > 0, location + length <= storage.length else { continue }
-            storage.addAttributes(
-                [.backgroundColor: theme.nsColor(.searchMatch)],
-                range: NSRange(location: location, length: length)
-            )
-        }
         storage.endEditing()
+
+        // Keep newly typed characters visible in the theme foreground.
+        textView.typingAttributes = [
+            .font: font,
+            .foregroundColor: foreground,
+            .paragraphStyle: paragraph,
+            .ligature: settings.ligatures ? 1 : 0,
+        ]
     }
 
     static func font(from settings: EditorSettings) -> NSFont {
@@ -220,19 +259,34 @@ public struct EditorTextView: NSViewRepresentable {
     public final class Coordinator: NSObject, NSTextViewDelegate {
         var text: Binding<String>
         var ruler: LineNumberRulerView?
+        var lastPaintSignature: SyntaxPaintSignature?
+        var isApplyingExternalText = false
 
         init(text: Binding<String>) {
             self.text = text
         }
 
         public func textDidChange(_ notification: Notification) {
+            guard isApplyingExternalText == false else { return }
             guard let textView = notification.object as? NSTextView else { return }
             if text.wrappedValue != textView.string {
+                // Invalidate paint cache so the next highlight pass can recolor.
+                lastPaintSignature = nil
                 text.wrappedValue = textView.string
             }
             ruler?.needsDisplay = true
         }
     }
+}
+
+struct SyntaxPaintSignature: Equatable {
+    var textUTF16Length: Int
+    var themeID: String
+    var captureCount: Int
+    var captureFingerprint: Int
+    var lastCaptureEnd: Int
+    var findCount: Int
+    var highlightingEnabled: Bool
 }
 
 final class NibTextView: NSTextView {
@@ -269,17 +323,28 @@ final class LineNumberRulerView: NSRulerView {
     override func drawHashMarksAndLabels(in rect: NSRect) {
         guard let textView else { return }
         theme.nsColor(.gutterBackground).setFill()
-        rect.fill()
+        bounds.fill()
 
         let foreground = theme.nsColor(.gutterForeground)
         let font = NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .regular)
-        let relativePoint = self.convert(NSPoint.zero, from: textView)
-        let visible = textView.visibleRect
+
+        // Empty or untouched buffer still owns line 1.
+        if textView.string.isEmpty {
+            let label = "1" as NSString
+            let size = label.size(withAttributes: [.font: font])
+            label.draw(
+                at: NSPoint(x: bounds.width - size.width - 6, y: textView.textContainerInset.height),
+                withAttributes: [.font: font, .foregroundColor: foreground]
+            )
+            return
+        }
 
         guard let layoutManager = textView.layoutManager,
               let textContainer = textView.textContainer
         else { return }
 
+        let relativePoint = self.convert(NSPoint.zero, from: textView)
+        let visible = textView.visibleRect
         let glyphRange = layoutManager.glyphRange(forBoundingRect: visible, in: textContainer)
         var index = glyphRange.location
         while index < NSMaxRange(glyphRange) {
@@ -313,6 +378,7 @@ final class LineNumberRulerView: NSRulerView {
     private func lineNumber(at utf16Index: Int, in string: String) -> Int {
         let ns = string as NSString
         let clamped = min(max(utf16Index, 0), ns.length)
+        if clamped == 0 { return 1 }
         var line = 1
         ns.enumerateSubstrings(
             in: NSRange(location: 0, length: clamped),
