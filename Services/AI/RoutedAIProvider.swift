@@ -1,7 +1,16 @@
 import Foundation
 import NibDomain
 
-/// Chooses Mock vs HTTP based on settings + Keychain presence.
+/// Shared flag for routing between mock and HTTP AI providers.
+public final class HTTPProviderPreference: @unchecked Sendable {
+    public var isEnabled: Bool
+
+    public init(isEnabled: Bool = false) {
+        self.isEnabled = isEnabled
+    }
+}
+
+/// Chooses Mock vs HTTP based on preference + Keychain presence.
 public struct RoutedAIProvider: AIProvider {
     public var id: String { active.id }
     public var displayName: String { active.displayName }
@@ -10,20 +19,20 @@ public struct RoutedAIProvider: AIProvider {
     private let mock: AIProvider
     private let http: AIProvider
     private let secrets: SecretStoring
-    private let prefersHTTP: () -> Bool
+    private let preference: HTTPProviderPreference
     private let account: String
 
     public init(
         mock: AIProvider = MockAIProvider(),
         http: AIProvider,
         secrets: SecretStoring,
-        prefersHTTP: @escaping () -> Bool,
+        preference: HTTPProviderPreference,
         account: String = KeychainSecretStore.providerAPIKeyAccount
     ) {
         self.mock = mock
         self.http = http
         self.secrets = secrets
-        self.prefersHTTP = prefersHTTP
+        self.preference = preference
         self.account = account
     }
 
@@ -36,7 +45,7 @@ public struct RoutedAIProvider: AIProvider {
     }
 
     private var active: AIProvider {
-        if prefersHTTP(), hasAPIKey {
+        if preference.isEnabled, hasAPIKey {
             return http
         }
         return mock

@@ -59,16 +59,24 @@ final class AppComposition: ObservableObject {
         if let aiProvider {
             self.aiProvider = aiProvider
         } else {
+            let httpPreference = HTTPProviderPreference(
+                isEnabled: editorSettings.settings.enableHTTPProvider
+            )
             let http = HTTPOpenAICompatibleProvider(secrets: secrets)
-            let settingsController = editorSettings
             self.aiProvider = RoutedAIProvider(
                 mock: MockAIProvider(),
                 http: http,
                 secrets: secrets,
-                prefersHTTP: {
-                    settingsController.settings.enableHTTPProvider
-                }
+                preference: httpPreference
             )
+            settingsObservation = editorSettings.$settings
+                .sink { [weak self] newSettings in
+                    httpPreference.isEnabled = newSettings.enableHTTPProvider
+                    Task { @MainActor in
+                        guard let self else { return }
+                        await self.languageServers.applySettings(newSettings)
+                    }
+                }
         }
         let stored = settings.string(for: AppearanceController.preferenceKey)
         let preference = stored.flatMap(AppearancePreference.init(rawValue:)) ?? .system
@@ -79,15 +87,17 @@ final class AppComposition: ObservableObject {
         )
         appearance.apply()
 
-        let servers = self.languageServers
-        let initialSettings = editorSettings.settings
-        settingsObservation = editorSettings.$settings
-            .dropFirst()
-            .sink { settings in
-                Task { @MainActor in
-                    await servers.applySettings(settings)
+        if settingsObservation == nil {
+            let servers = self.languageServers
+            settingsObservation = editorSettings.$settings
+                .dropFirst()
+                .sink { settings in
+                    Task { @MainActor in
+                        await servers.applySettings(settings)
+                    }
                 }
-            }
+        }
+        let initialSettings = editorSettings.settings
         Task { @MainActor in
             await servers.applySettings(initialSettings)
         }
