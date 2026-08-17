@@ -19,6 +19,9 @@ public struct Diagnostic: Equatable, Sendable, Identifiable {
     public var severity: DiagnosticSeverity
     public var line: Int
     public var column: Int
+    /// Optional LSP 0-based range; resolved to `utf16Range` against buffer text.
+    public var lspStart: LSPPosition?
+    public var lspEnd: LSPPosition?
     public var utf16Range: Range<Int>?
 
     public init(
@@ -27,6 +30,8 @@ public struct Diagnostic: Equatable, Sendable, Identifiable {
         severity: DiagnosticSeverity,
         line: Int,
         column: Int,
+        lspStart: LSPPosition? = nil,
+        lspEnd: LSPPosition? = nil,
         utf16Range: Range<Int>? = nil
     ) {
         self.id = id
@@ -34,7 +39,80 @@ public struct Diagnostic: Equatable, Sendable, Identifiable {
         self.severity = severity
         self.line = line
         self.column = column
+        self.lspStart = lspStart
+        self.lspEnd = lspEnd
         self.utf16Range = utf16Range
+    }
+
+    /// Fills `utf16Range` from LSP positions or line/column against the current buffer.
+    public func resolvingUTF16Range(in text: String) -> Diagnostic {
+        var copy = self
+        if let start = lspStart {
+            let lower = LineColumnParser.utf16Offset(
+                lspLine: start.line,
+                lspCharacter: start.character,
+                in: text
+            )
+            let upper: Int
+            if let end = lspEnd {
+                upper = max(
+                    lower + 1,
+                    LineColumnParser.utf16Offset(
+                        lspLine: end.line,
+                        lspCharacter: end.character,
+                        in: text
+                    )
+                )
+            } else {
+                upper = Self.defaultEnd(from: lower, in: text)
+            }
+            let length = (text as NSString).length
+            let clampedLower = min(lower, length)
+            let clampedUpper = min(max(upper, clampedLower + (length > clampedLower ? 1 : 0)), length)
+            if clampedUpper > clampedLower {
+                copy.utf16Range = clampedLower..<clampedUpper
+            } else {
+                copy.utf16Range = nil
+            }
+            return copy
+        }
+        if let existing = utf16Range, existing.lowerBound >= 0 {
+            let length = (text as NSString).length
+            let lower = min(existing.lowerBound, length)
+            let upper = min(max(existing.upperBound, lower + 1), length)
+            if upper > lower {
+                copy.utf16Range = lower..<upper
+                return copy
+            }
+        }
+        let lower = LineColumnParser.utf16Offset(
+            of: LineColumn(line: line, column: column),
+            in: text
+        )
+        let upper = Self.defaultEnd(from: lower, in: text)
+        let length = (text as NSString).length
+        let clampedLower = min(lower, length)
+        let clampedUpper = min(max(upper, clampedLower + (length > clampedLower ? 1 : 0)), length)
+        if clampedUpper > clampedLower {
+            copy.utf16Range = clampedLower..<clampedUpper
+        } else {
+            copy.utf16Range = nil
+        }
+        return copy
+    }
+
+    private static func defaultEnd(from start: Int, in text: String) -> Int {
+        let ns = text as NSString
+        guard start < ns.length else { return start }
+        var end = start + 1
+        while end < ns.length, end - start < 24 {
+            let character = ns.character(at: end)
+            if character == 10 || character == 13 || character == 32 || character == 9 {
+                break
+            }
+            end += 1
+        }
+        return end
     }
 }
 

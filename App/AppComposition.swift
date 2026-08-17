@@ -25,7 +25,7 @@ final class AppComposition: ObservableObject {
         appearanceApplier: AppearanceApplying = AppKitAppearanceApplier(),
         languageServers: LanguageServerController? = nil,
         secrets: SecretStoring = InMemorySecretStore(),
-        aiProvider: AIProvider = UnconfiguredAIProvider.instance,
+        aiProvider: AIProvider = MockAIProvider(),
         recovery: DocumentRecoveryStoring? = nil,
         languageDetector: LanguageDetecting = DefaultLanguageDetector(),
         syntaxHighlighter: SyntaxHighlighting = CompositeSyntaxHighlighter(),

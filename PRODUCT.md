@@ -61,11 +61,11 @@ Shipped themes + user theme JSON from Application Support, Tree-sitter highlight
 
 ### Phase 3 — LSP and IDE capabilities
 
-Document-centric LSP with PATH auto-detection (Pyright, typescript-language-server, SourceKit, ZLS, …), optional demo FakeLSP, diagnostics/completion/hover. Real server install UI, definition/references/rename, and formatting follow. Useful with language server off.
+Document-centric LSP with PATH auto-detection (Pyright, typescript-language-server, SourceKit, ZLS, …), optional demo FakeLSP, underlined diagnostics with hover, completion, and hover info. Real server install UI, definition/references/rename, and formatting follow. Useful with language server off.
 
 ### Phase 4 — AI selection actions
 
-Provider-agnostic adapters, mock provider, Keychain secrets, inline ghost text, explain/edit/document/fix selection, context disclosure UI.
+Mock AI provider and Explain Selection (`⇧⌘E`) are wired locally. Keychain secrets, disclosure sheet polish, ghost text, and edit/fix actions follow.
 
 ### Phase 5 — Agents
 

@@ -54,7 +54,7 @@ Phases are capability slices, not calendar estimates. Each phase should leave `m
 
 - Server install/config UI (palette/settings), stdio client, document lifecycle — **partial** (PATH auto-detect + demo FakeLSP + settings toggles; dedicated install UI follows)
 - Incremental sync, cancellation, sensible timeouts — **done** (full-document sync + cancel; timeouts follow)
-- Diagnostics, completion, hover, definition/declaration, references, rename — **partial** (diagnostics strip, completion overlay, hover; navigation/rename follow)
+- Diagnostics, completion, hover, definition/declaration, references, rename — **partial** (underlined diagnostics + hover tooltip, completion overlay, hover; navigation/rename follow)
 - Code actions, document symbols, formatting (on demand and optional on save)
 - Semantic tokens when the server provides them
 - Error states: server missing, crashed, or slow — editor stays usable — **done** (missing server shows status; editing continues)
@@ -65,11 +65,11 @@ Phases are capability slices, not calendar estimates. Each phase should leave `m
 
 **Goal.** Help on the selection without an agent.
 
-- Mock provider + one HTTP adapter behind `AIProvider`
+- Mock provider + one HTTP adapter behind `AIProvider` — **partial** (MockAIProvider + Explain Selection)
 - Keychain-backed `SecretStoring`
-- Context disclosure sheet
+- Context disclosure sheet — **partial** (disclosure fields populated; dedicated sheet UI follows)
 - Inline ghost text: accept, dismiss, partial accept if feasible
-- Explain / edit / document / generate / fix diagnostic / ask about this file
+- Explain / edit / document / generate / fix diagnostic / ask about this file — **partial** (Explain Selection)
 - All edits previewable and undoable
 
 **Exit.** A user with no key still edits normally. A user with a mock provider can explain and edit a selection.

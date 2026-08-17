@@ -33,6 +33,7 @@ public enum BuiltInCommandID {
     public static let languagePlain = "lang.plaintext"
     public static let complete = "lsp.complete"
     public static let hover = "lsp.hover"
+    public static let explainSelection = "ai.explainSelection"
 }
 
 public enum CommandFilter {

@@ -8,4 +8,5 @@ public extension Notification.Name {
     static let nibFind = Notification.Name("nib.find")
     static let nibComplete = Notification.Name("nib.complete")
     static let nibHover = Notification.Name("nib.hover")
+    static let nibExplainSelection = Notification.Name("nib.explainSelection")
 }

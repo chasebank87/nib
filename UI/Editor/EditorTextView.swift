@@ -5,44 +5,58 @@ import SwiftUI
 public struct EditorTextView: NSViewRepresentable {
     @Binding var text: String
     @Binding var caretUTF16: Int
+    @Binding var selectionUTF16: Range<Int>
     @Binding var pendingCaretUTF16: Int?
     @Binding var pendingSelectionUTF16: Range<Int>?
+    @Binding var diagnosticHover: DiagnosticHover?
     var theme: Theme
     var settings: EditorSettings
     var capabilities: DocumentCapabilities
     var syntaxCaptures: [SyntaxCapture]
     var findMatches: [Range<Int>]
+    var diagnostics: [Diagnostic]
     var isEditable: Bool
     var wrapLines: Bool
 
     public init(
         text: Binding<String>,
         caretUTF16: Binding<Int> = .constant(0),
+        selectionUTF16: Binding<Range<Int>> = .constant(0..<0),
         pendingCaretUTF16: Binding<Int?>,
         pendingSelectionUTF16: Binding<Range<Int>?> = .constant(nil),
+        diagnosticHover: Binding<DiagnosticHover?> = .constant(nil),
         theme: Theme,
         settings: EditorSettings,
         capabilities: DocumentCapabilities = .full,
         syntaxCaptures: [SyntaxCapture] = [],
         findMatches: [Range<Int>] = [],
+        diagnostics: [Diagnostic] = [],
         isEditable: Bool = true,
         wrapLines: Bool = false
     ) {
         _text = text
         _caretUTF16 = caretUTF16
+        _selectionUTF16 = selectionUTF16
         _pendingCaretUTF16 = pendingCaretUTF16
         _pendingSelectionUTF16 = pendingSelectionUTF16
+        _diagnosticHover = diagnosticHover
         self.theme = theme
         self.settings = settings
         self.capabilities = capabilities
         self.syntaxCaptures = syntaxCaptures
         self.findMatches = findMatches
+        self.diagnostics = diagnostics
         self.isEditable = isEditable
         self.wrapLines = wrapLines
     }
 
     public func makeCoordinator() -> Coordinator {
-        Coordinator(text: $text, caretUTF16: $caretUTF16)
+        Coordinator(
+            text: $text,
+            caretUTF16: $caretUTF16,
+            selectionUTF16: $selectionUTF16,
+            diagnosticHover: $diagnosticHover
+        )
     }
 
     public func makeNSView(context: Context) -> NSScrollView {
@@ -85,6 +99,10 @@ public struct EditorTextView: NSViewRepresentable {
         let ruler = LineNumberRulerView(textView: textView, theme: theme)
         scrollView.verticalRulerView = ruler
         context.coordinator.ruler = ruler
+        textView.diagnostics = diagnostics
+        textView.onDiagnosticHover = { hover in
+            context.coordinator.diagnosticHover.wrappedValue = hover
+        }
 
         applyChrome(to: textView, scrollView: scrollView)
         applySyntax(to: textView, force: true, coordinator: context.coordinator)
@@ -94,7 +112,14 @@ public struct EditorTextView: NSViewRepresentable {
     public func updateNSView(_ scrollView: NSScrollView, context: Context) {
         guard let textView = scrollView.documentView as? NibTextView else { return }
         context.coordinator.text = $text
+        context.coordinator.caretUTF16 = $caretUTF16
+        context.coordinator.selectionUTF16 = $selectionUTF16
+        context.coordinator.diagnosticHover = $diagnosticHover
         context.coordinator.ruler?.theme = theme
+        textView.diagnostics = diagnostics
+        textView.onDiagnosticHover = { hover in
+            context.coordinator.diagnosticHover.wrappedValue = hover
+        }
         applyChrome(to: textView, scrollView: scrollView)
         textView.isEditable = isEditable
         let showRuler = settings.showLineNumbers && capabilities.lineNumbers
@@ -194,6 +219,8 @@ public struct EditorTextView: NSViewRepresentable {
             captureFingerprint: syntaxCaptures.first.map(\.utf16Range.lowerBound) ?? -1,
             lastCaptureEnd: syntaxCaptures.last.map(\.utf16Range.upperBound) ?? -1,
             findCount: findMatches.count,
+            diagnosticCount: diagnostics.count,
+            diagnosticFingerprint: diagnostics.first?.utf16Range?.lowerBound ?? -1,
             highlightingEnabled: capabilities.liveHighlighting
         )
         guard force || coordinator.lastPaintSignature != signature else { return }
@@ -239,6 +266,24 @@ public struct EditorTextView: NSViewRepresentable {
                     range: NSRange(location: location, length: length)
                 )
             }
+            for diagnostic in diagnostics {
+                guard let range = diagnostic.utf16Range else { continue }
+                let location = range.lowerBound
+                let length = range.count
+                guard location >= 0, length > 0, location + length <= storage.length else { continue }
+                let color = theme.nsColor(Self.token(for: diagnostic.severity))
+                let style = NSUnderlineStyle.single.rawValue | NSUnderlineStyle.patternDot.rawValue
+                storage.addAttribute(
+                    .underlineStyle,
+                    value: style,
+                    range: NSRange(location: location, length: length)
+                )
+                storage.addAttribute(
+                    .underlineColor,
+                    value: color,
+                    range: NSRange(location: location, length: length)
+                )
+            }
         }
         storage.endEditing()
 
@@ -249,6 +294,15 @@ public struct EditorTextView: NSViewRepresentable {
             .paragraphStyle: paragraph,
             .ligature: settings.ligatures ? 1 : 0,
         ]
+    }
+
+    static func token(for severity: DiagnosticSeverity) -> ThemeToken {
+        switch severity {
+        case .error: return .diagnosticError
+        case .warning: return .diagnosticWarning
+        case .information: return .diagnosticInfo
+        case .hint: return .diagnosticHint
+        }
     }
 
     static func font(from settings: EditorSettings) -> NSFont {
@@ -262,13 +316,22 @@ public struct EditorTextView: NSViewRepresentable {
     public final class Coordinator: NSObject, NSTextViewDelegate {
         var text: Binding<String>
         var caretUTF16: Binding<Int>
+        var selectionUTF16: Binding<Range<Int>>
+        var diagnosticHover: Binding<DiagnosticHover?>
         var ruler: LineNumberRulerView?
         var lastPaintSignature: SyntaxPaintSignature?
         var isApplyingExternalText = false
 
-        init(text: Binding<String>, caretUTF16: Binding<Int>) {
+        init(
+            text: Binding<String>,
+            caretUTF16: Binding<Int>,
+            selectionUTF16: Binding<Range<Int>>,
+            diagnosticHover: Binding<DiagnosticHover?>
+        ) {
             self.text = text
             self.caretUTF16 = caretUTF16
+            self.selectionUTF16 = selectionUTF16
+            self.diagnosticHover = diagnosticHover
         }
 
         public func textDidChange(_ notification: Notification) {
@@ -279,13 +342,17 @@ public struct EditorTextView: NSViewRepresentable {
                 lastPaintSignature = nil
                 text.wrappedValue = textView.string
             }
-            caretUTF16.wrappedValue = textView.selectedRange().location
+            let range = textView.selectedRange()
+            caretUTF16.wrappedValue = range.location
+            selectionUTF16.wrappedValue = range.location..<(range.location + range.length)
             ruler?.needsDisplay = true
         }
 
         public func textViewDidChangeSelection(_ notification: Notification) {
             guard let textView = notification.object as? NSTextView else { return }
-            caretUTF16.wrappedValue = textView.selectedRange().location
+            let range = textView.selectedRange()
+            caretUTF16.wrappedValue = range.location
+            selectionUTF16.wrappedValue = range.location..<(range.location + range.length)
         }
     }
 }
@@ -297,12 +364,68 @@ struct SyntaxPaintSignature: Equatable {
     var captureFingerprint: Int
     var lastCaptureEnd: Int
     var findCount: Int
+    var diagnosticCount: Int
+    var diagnosticFingerprint: Int
     var highlightingEnabled: Bool
 }
 
 final class NibTextView: NSTextView {
     var nibInsertSpaces = true
     var nibTabWidth = 4
+    var diagnostics: [Diagnostic] = []
+    var onDiagnosticHover: ((DiagnosticHover?) -> Void)?
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        window?.acceptsMouseMovedEvents = true
+        if trackingAreas.isEmpty == false {
+            trackingAreas.forEach(removeTrackingArea)
+        }
+        let area = NSTrackingArea(
+            rect: bounds,
+            options: [.activeInKeyWindow, .mouseMoved, .mouseEnteredAndExited, .inVisibleRect],
+            owner: self,
+            userInfo: nil
+        )
+        addTrackingArea(area)
+    }
+
+    override func mouseMoved(with event: NSEvent) {
+        super.mouseMoved(with: event)
+        guard let layoutManager, let textContainer else {
+            onDiagnosticHover?(nil)
+            return
+        }
+        let pointInView = convert(event.locationInWindow, from: nil)
+        let origin = textContainerOrigin
+        let point = NSPoint(x: pointInView.x - origin.x, y: pointInView.y - origin.y)
+        var fraction: CGFloat = 0
+        let index = layoutManager.characterIndex(
+            for: point,
+            in: textContainer,
+            fractionOfDistanceBetweenInsertionPoints: &fraction
+        )
+        if let diagnostic = diagnostics.first(where: { diagnostic in
+            guard let range = diagnostic.utf16Range else { return false }
+            return range.contains(index)
+        }) {
+            onDiagnosticHover?(
+                DiagnosticHover(
+                    diagnosticID: diagnostic.id,
+                    message: diagnostic.message,
+                    severity: diagnostic.severity,
+                    anchorUTF16: index
+                )
+            )
+        } else {
+            onDiagnosticHover?(nil)
+        }
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        super.mouseExited(with: event)
+        onDiagnosticHover?(nil)
+    }
 
     override func insertTab(_ sender: Any?) {
         if nibInsertSpaces {

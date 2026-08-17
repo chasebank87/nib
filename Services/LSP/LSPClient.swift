@@ -235,11 +235,18 @@ public actor LSPClient: LanguageServerClienting, DiagnosticPublishing {
             }
             let range = item["range"] as? [String: Any]
             let start = range?["start"] as? [String: Any]
+            let end = range?["end"] as? [String: Any]
+            let startLine = start?["line"] as? Int ?? 0
+            let startCharacter = start?["character"] as? Int ?? 0
+            let endLine = end?["line"] as? Int ?? startLine
+            let endCharacter = end?["character"] as? Int ?? (startCharacter + 1)
             return Diagnostic(
                 message: item["message"] as? String ?? "Diagnostic",
                 severity: severity,
-                line: (start?["line"] as? Int ?? 0) + 1,
-                column: (start?["character"] as? Int ?? 0) + 1
+                line: startLine + 1,
+                column: startCharacter + 1,
+                lspStart: LSPPosition(line: startLine, character: startCharacter),
+                lspEnd: LSPPosition(line: endLine, character: endCharacter)
             )
         }
     }

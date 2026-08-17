@@ -27,13 +27,16 @@ public struct EditorShellView: View {
                 EditorTextView(
                     text: $session.text,
                     caretUTF16: $session.caretUTF16,
+                    selectionUTF16: $session.selectionUTF16,
                     pendingCaretUTF16: $session.pendingCaretUTF16,
                     pendingSelectionUTF16: $session.pendingSelectionUTF16,
+                    diagnosticHover: $session.diagnosticHover,
                     theme: session.theme,
                     settings: session.settings,
                     capabilities: session.capabilities,
                     syntaxCaptures: session.syntaxCaptures,
                     findMatches: session.findMatches,
+                    diagnostics: session.diagnostics,
                     wrapLines: session.settings.wrapLines
                         && session.capabilities.wrapLines
                         && session.reducedFeatureMessage == nil
@@ -89,36 +92,29 @@ public struct EditorShellView: View {
                 )
             }
 
-            if let hover = session.hoverText {
-                VStack {
-                    Spacer()
-                    HStack {
-                        Text(hover)
-                            .font(.system(size: 12))
-                            .foregroundStyle(session.theme.color(.overlayForeground))
-                            .padding(12)
-                            .frame(maxWidth: 420, alignment: .leading)
-                            .background(session.theme.color(.overlayBackground))
-                            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                    .stroke(session.theme.color(.overlayBorder), lineWidth: 1)
-                            )
-                            .padding(16)
-                        Spacer()
-                    }
+            if let hover = session.diagnosticHover {
+                diagnosticTooltip(hover)
+            } else if let hover = session.hoverText {
+                bottomOverlay(text: hover) {
+                    session.hoverText = nil
                 }
-                .transition(.opacity)
-                .onTapGesture { session.hoverText = nil }
+            }
+
+            if session.isAIPresented, let response = session.aiResponseText {
+                AIExplainOverlayView(
+                    text: response,
+                    theme: session.theme,
+                    onDismiss: {
+                        session.isAIPresented = false
+                        session.aiResponseText = nil
+                    }
+                )
             }
         }
         .frame(minWidth: 480, minHeight: 320)
         .onDrop(of: [UTType.fileURL], isTargeted: nil, perform: handleDrop)
         .onReceive(NotificationCenter.default.publisher(for: .nibToggleCommandPalette)) { _ in
-            session.isGoToLinePresented = false
-            session.isFindPresented = false
-            session.isCompletionPresented = false
-            session.hoverText = nil
+            session.dismissTransientOverlays()
             session.isPalettePresented.toggle()
         }
         .onReceive(NotificationCenter.default.publisher(for: .nibGoToLine)) { _ in
@@ -136,6 +132,10 @@ public struct EditorShellView: View {
         .onReceive(NotificationCenter.default.publisher(for: .nibHover)) { _ in
             session.isCompletionPresented = false
             session.onRequestHover()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .nibExplainSelection)) { _ in
+            session.dismissTransientOverlays()
+            session.onExplainSelection()
         }
         .onReceive(NotificationCenter.default.publisher(for: .nibAppearanceDidChange)) { _ in
             session.theme = resolveTheme()
@@ -180,15 +180,86 @@ public struct EditorShellView: View {
                 .font(.system(size: 11))
                 .foregroundStyle(session.theme.color(.editorForeground).opacity(0.8))
                 .lineLimit(1)
-        } else if let diagnostic = session.diagnostics.first {
-            Text("\(diagnostic.severity.rawValue): \(diagnostic.message)")
+        } else if session.diagnostics.isEmpty == false {
+            let errors = session.diagnostics.filter { $0.severity == .error }.count
+            let warnings = session.diagnostics.filter { $0.severity == .warning }.count
+            Text(issueSummary(errors: errors, warnings: warnings, total: session.diagnostics.count))
                 .font(.system(size: 11))
-                .foregroundStyle(session.theme.color(.editorForeground).opacity(0.85))
-                .lineLimit(1)
+                .foregroundStyle(session.theme.color(.gutterForeground))
+                .help("Diagnostics are underlined in the editor — hover a mark for details")
         } else {
             Text(session.languageOverrideID == nil ? "Auto" : "Manual")
                 .font(.system(size: 11))
                 .foregroundStyle(session.theme.color(.gutterForeground).opacity(0.7))
+        }
+    }
+
+    private func issueSummary(errors: Int, warnings: Int, total: Int) -> String {
+        if errors > 0, warnings > 0 {
+            return "\(errors) errors · \(warnings) warnings"
+        }
+        if errors > 0 {
+            return errors == 1 ? "1 error" : "\(errors) errors"
+        }
+        if warnings > 0 {
+            return warnings == 1 ? "1 warning" : "\(warnings) warnings"
+        }
+        return total == 1 ? "1 issue" : "\(total) issues"
+    }
+
+    private func diagnosticTooltip(_ hover: DiagnosticHover) -> some View {
+        VStack {
+            HStack {
+                Text(hover.message)
+                    .font(.system(size: 12))
+                    .foregroundStyle(session.theme.color(.overlayForeground))
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(session.theme.color(.overlayBackground))
+                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .stroke(session.theme.color(token(for: hover.severity)), lineWidth: 1)
+                    )
+                    .padding(.top, 48)
+                    .padding(.leading, 56)
+                Spacer()
+            }
+            Spacer()
+        }
+        .allowsHitTesting(false)
+        .transition(.opacity)
+    }
+
+    private func bottomOverlay(text: String, onDismiss: @escaping () -> Void) -> some View {
+        VStack {
+            Spacer()
+            HStack {
+                Text(text)
+                    .font(.system(size: 12))
+                    .foregroundStyle(session.theme.color(.overlayForeground))
+                    .padding(12)
+                    .frame(maxWidth: 420, alignment: .leading)
+                    .background(session.theme.color(.overlayBackground))
+                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .stroke(session.theme.color(.overlayBorder), lineWidth: 1)
+                    )
+                    .padding(16)
+                Spacer()
+            }
+        }
+        .transition(.opacity)
+        .onTapGesture(perform: onDismiss)
+    }
+
+    private func token(for severity: DiagnosticSeverity) -> ThemeToken {
+        switch severity {
+        case .error: return .diagnosticError
+        case .warning: return .diagnosticWarning
+        case .information: return .diagnosticInfo
+        case .hint: return .diagnosticHint
         }
     }
 

@@ -15,7 +15,9 @@ public final class EditorSession: ObservableObject {
     @Published public var isGoToLinePresented: Bool
     @Published public var isFindPresented: Bool
     @Published public var isCompletionPresented: Bool
+    @Published public var isAIPresented: Bool
     @Published public var caretUTF16: Int
+    @Published public var selectionUTF16: Range<Int>
     @Published public var pendingCaretUTF16: Int?
     @Published public var pendingSelectionUTF16: Range<Int>?
     @Published public var reducedFeatureMessage: String?
@@ -31,6 +33,8 @@ public final class EditorSession: ObservableObject {
     @Published public var diagnostics: [Diagnostic]
     @Published public var completions: [CompletionItem]
     @Published public var hoverText: String?
+    @Published public var diagnosticHover: DiagnosticHover?
+    @Published public var aiResponseText: String?
     @Published public var lspStatus: String
 
     public let commands = CommandRegistry()
@@ -45,6 +49,7 @@ public final class EditorSession: ObservableObject {
     public var onRequestCompletions: () -> Void
     public var onInsertCompletion: (CompletionItem) -> Void
     public var onRequestHover: () -> Void
+    public var onExplainSelection: () -> Void
 
     private var isApplyingFileText = false
 
@@ -66,14 +71,17 @@ public final class EditorSession: ObservableObject {
         onFindReplaceAll: @escaping (FindOptions) -> Void = { _ in },
         onRequestCompletions: @escaping () -> Void = {},
         onInsertCompletion: @escaping (CompletionItem) -> Void = { _ in },
-        onRequestHover: @escaping () -> Void = {}
+        onRequestHover: @escaping () -> Void = {},
+        onExplainSelection: @escaping () -> Void = {}
     ) {
         self.text = text
         self.isPalettePresented = isPalettePresented
         self.isGoToLinePresented = isGoToLinePresented
         self.isFindPresented = isFindPresented
         self.isCompletionPresented = false
+        self.isAIPresented = false
         self.caretUTF16 = 0
+        self.selectionUTF16 = 0..<0
         self.settings = settings
         self.theme = theme
         self.language = language
@@ -94,12 +102,22 @@ public final class EditorSession: ObservableObject {
         self.onRequestHover = onRequestHover
         self.onRequestCompletions = onRequestCompletions
         self.onInsertCompletion = onInsertCompletion
+        self.onExplainSelection = onExplainSelection
     }
 
     public func applyFileText(_ value: String) {
         isApplyingFileText = true
         text = value
         isApplyingFileText = false
+    }
+
+    public func applyDiagnostics(_ values: [Diagnostic]) {
+        diagnostics = values.map { $0.resolvingUTF16Range(in: text) }
+        if let hover = diagnosticHover,
+           diagnostics.contains(where: { $0.id == hover.diagnosticID }) == false
+        {
+            diagnosticHover = nil
+        }
     }
 
     public func performOpen() {
@@ -125,7 +143,10 @@ public final class EditorSession: ObservableObject {
         isGoToLinePresented = false
         isFindPresented = false
         isCompletionPresented = false
+        isAIPresented = false
         hoverText = nil
+        diagnosticHover = nil
+        aiResponseText = nil
     }
 
     public func runFind() {
@@ -154,5 +175,19 @@ public final class EditorSession: ObservableObject {
     public func runReplaceAll() {
         onFindReplaceAll(findOptions)
         runFind()
+    }
+}
+
+public struct DiagnosticHover: Equatable, Sendable {
+    public var diagnosticID: UUID
+    public var message: String
+    public var severity: DiagnosticSeverity
+    public var anchorUTF16: Int
+
+    public init(diagnosticID: UUID, message: String, severity: DiagnosticSeverity, anchorUTF16: Int) {
+        self.diagnosticID = diagnosticID
+        self.message = message
+        self.severity = severity
+        self.anchorUTF16 = anchorUTF16
     }
 }

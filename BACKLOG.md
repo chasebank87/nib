@@ -150,7 +150,7 @@ Independently testable tickets. Status: `done` means this repository already inc
 
 ## NIB-012 — LSP completion, diagnostics, and hover
 
-- **Status:** done (real/demo servers + overlays; dedicated install UI follows)
+- **Status:** done (real/demo servers + underlines/hover + completion overlay)
 - **Goal:** First useful IDE loop on the current file.
 - **Scope:** Map protocol types to Domain; overlay UI; diagnostic gutter marks (simple).
 - **Acceptance:** Fake server can inject a diagnostic and a completion item; accepting a completion edits the document via undo.
@@ -162,6 +162,7 @@ Independently testable tickets. Status: `done` means this repository already inc
 
 ## NIB-013 — Mock AI provider and explain-selection
 
+- **Status:** done (mock provider + Explain Selection overlay; disclosure sheet polish follows)
 - **Goal:** Exercise the AI architecture without paid APIs.
 - **Scope:** `MockAIProvider`, `ContextDisclosure` sheet, “Explain this selection” command. No HTTP. No tools.
 - **Acceptance:** With mock configured, a selection produces a canned explanation overlay. With no provider, the command explains that AI is unconfigured. Nothing leaves the device.

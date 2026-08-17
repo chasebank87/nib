@@ -64,6 +64,9 @@ final class NibDocument: NSDocument {
             session.onRequestHover = { [weak self] in
                 self?.requestHover()
             }
+            session.onExplainSelection = { [weak self] in
+                self?.explainSelection()
+            }
             self.session = session
             self.registerCommands()
         }
@@ -198,6 +201,10 @@ final class NibDocument: NSDocument {
             self.syncWindowChrome()
             self.scheduleRecoveryWrite()
             self.scheduleLanguageAutoDetect()
+            // Keep underline ranges aligned with the live buffer.
+            if self.session.diagnostics.isEmpty == false {
+                self.session.applyDiagnostics(self.session.diagnostics)
+            }
         }
     }
 
@@ -282,6 +289,16 @@ final class NibDocument: NSDocument {
             )
         ) { [weak self] in
             self?.requestHover()
+        }
+        commands.register(
+            EditorCommand(
+                id: BuiltInCommandID.explainSelection,
+                title: "Explain Selection",
+                keywords: ["ai", "mock", "explain"],
+                shortcutLabel: "⇧⌘E"
+            )
+        ) { [weak self] in
+            self?.explainSelection()
         }
         for language in LanguageDescriptor.priorityLanguages + [.plainText] {
             let id = "lang.\(language.id)"
@@ -543,7 +560,7 @@ final class NibDocument: NSDocument {
         cancellables.removeAll()
         let servers = AppComposition.shared.languageServers
         session.lspStatus = servers.statusMessage
-        session.diagnostics = servers.diagnostics
+        session.applyDiagnostics(servers.diagnostics)
         servers.$statusMessage
             .receive(on: RunLoop.main)
             .sink { [weak self] status in
@@ -553,7 +570,7 @@ final class NibDocument: NSDocument {
         servers.$diagnostics
             .receive(on: RunLoop.main)
             .sink { [weak self] diagnostics in
-                self?.session.diagnostics = diagnostics
+                self?.session.applyDiagnostics(diagnostics)
             }
             .store(in: &cancellables)
         NotificationCenter.default.publisher(for: .nibEditorSettingsDidChange)
@@ -581,7 +598,7 @@ final class NibDocument: NSDocument {
     private func syncLanguageServerDocument(forceReopen: Bool) async {
         guard session.capabilities.languageServers else {
             await closeLanguageServerDocumentAsync()
-            session.diagnostics = []
+            session.applyDiagnostics([])
             return
         }
         let servers = AppComposition.shared.languageServers
@@ -711,6 +728,55 @@ final class NibDocument: NSDocument {
                 AppLog.lsp.error("hover failed \(error.localizedDescription, privacy: .public)")
             }
         }
+    }
+
+    @MainActor
+    private func explainSelection() {
+        let selection = selectedText()
+        guard selection.isEmpty == false else {
+            session.aiResponseText = "Select some text first, then run Explain Selection."
+            session.isAIPresented = true
+            return
+        }
+        let disclosure = ContextDisclosure(
+            filePath: fileURL?.path,
+            selectedCharacterCount: selection.count,
+            includesDiagnostics: false,
+            includesRepositoryContext: false,
+            includesCommandOutput: false
+        )
+        let request = AIRequest(
+            instruction: "Explain this selection",
+            selectedText: selection,
+            fileText: nil,
+            disclosure: disclosure
+        )
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            do {
+                let response = try await AppComposition.shared.aiProvider.complete(request)
+                self.session.aiResponseText = response.text
+                self.session.isAIPresented = true
+            } catch AIProviderError.notConfigured {
+                self.session.aiResponseText =
+                    "AI is not configured. The mock provider is enabled by default in this build — check AppComposition."
+                self.session.isAIPresented = true
+            } catch {
+                self.session.aiResponseText = error.localizedDescription
+                self.session.isAIPresented = true
+            }
+        }
+    }
+
+    @MainActor
+    private func selectedText() -> String {
+        let range = session.selectionUTF16
+        guard range.count > 0 else { return "" }
+        let ns = session.text as NSString
+        let location = min(max(range.lowerBound, 0), ns.length)
+        let length = min(max(range.count, 0), ns.length - location)
+        guard length > 0 else { return "" }
+        return ns.substring(with: NSRange(location: location, length: length))
     }
 
     // NSDocument I/O overrides are nonisolated; keep these helpers callable there.

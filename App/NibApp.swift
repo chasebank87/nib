@@ -52,6 +52,10 @@ struct NibApp: App {
                     NotificationCenter.default.post(name: .nibHover, object: nil)
                 }
                 .keyboardShortcut(".", modifiers: [.command, .option])
+                Button("Explain Selection") {
+                    NotificationCenter.default.post(name: .nibExplainSelection, object: nil)
+                }
+                .keyboardShortcut("e", modifiers: [.command, .shift])
             }
             CommandMenu("View") {
                 Button("Command Palette") {
