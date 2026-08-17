@@ -98,12 +98,15 @@ public actor FakeLSPServer {
                     closedURIs.append(uri)
                 }
             case "textDocument/completion":
-                let items: [[String: Any]] = completionItems.map {
-                    [
-                        "label": $0.label,
-                        "detail": $0.detail as Any,
-                        "insertText": $0.insertText,
+                let items: [[String: Any]] = completionItems.map { item in
+                    var payload: [String: Any] = [
+                        "label": item.label,
+                        "insertText": item.insertText,
                     ]
+                    if let detail = item.detail {
+                        payload["detail"] = detail
+                    }
+                    return payload
                 }
                 try await reply(id: id, result: ["isIncomplete": false, "items": items])
             case "textDocument/hover":
