@@ -1657,10 +1657,11 @@ final class NibDocument: NSDocument {
     @MainActor
     private func refreshGitFileStatus() {
         let path = fileURL?.path
-        Task.detached { [weak self] in
+        let id = recoveryID
+        Task.detached {
             let mark = GitStatusReader.fileMark(for: path)
             await MainActor.run {
-                self?.session.gitStatusLabel = mark.statusLabel
+                Self.registered(id: id)?.session.gitStatusLabel = mark.statusLabel
             }
         }
     }
