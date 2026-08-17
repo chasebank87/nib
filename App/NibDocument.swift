@@ -92,13 +92,13 @@ final class NibDocument: NSDocument {
         syncWindowChrome()
     }
 
-    private func syncWindowChrome() {
+    nonisolated private func syncWindowChrome() {
         for controller in windowControllers {
             controller.window?.subtitle = abbreviatedPath
         }
     }
 
-    private var abbreviatedPath: String {
+    nonisolated private var abbreviatedPath: String {
         guard let path = fileURL?.path else { return "" }
         let home = NSHomeDirectory()
         if path.hasPrefix(home) {
