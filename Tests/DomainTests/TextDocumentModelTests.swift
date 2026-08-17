@@ -58,9 +58,15 @@ struct TextDocumentModelTests {
         #expect(model.lineEnding == .crlf)
         #expect(try codec.encode(model) == data)
 
+        // In-memory text is already LF-normalized, so an identical replace is a
+        // no-op and must keep the original mixed bytes. A real edit drops them
+        // and rewrites with the majority ending (CRLF on a tie).
         model.replaceText("a\nb\nc\n")
+        #expect(try codec.encode(model) == data)
+
+        model.replaceText("a\nb\nc\n!")
         let encoded = try codec.encode(model)
-        #expect(String(data: encoded, encoding: .utf8) == "a\r\nb\r\nc\r\n")
+        #expect(String(data: encoded, encoding: .utf8) == "a\r\nb\r\nc\r\n!")
     }
 
     @Test func utf8BOMIsPreserved() throws {

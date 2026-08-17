@@ -30,9 +30,10 @@ final class NibDocument: NSDocument {
             session.onOpenURLs = { urls in
                 for url in urls {
                     NSDocumentController.shared.openDocument(withContentsOf: url, display: true) { _, _, error in
-                        if let error {
+                        guard let message = error?.localizedDescription else { return }
+                        Task { @MainActor in
                             AppLog.document.error(
-                                "dropped file failed \(error.localizedDescription, privacy: .public)"
+                                "dropped file failed \(message, privacy: .public)"
                             )
                         }
                     }
@@ -130,11 +131,13 @@ final class NibDocument: NSDocument {
 
     override func presentedItemDidChange() {
         super.presentedItemDidChange()
+        let id = recoveryID
         Task { @MainActor in
-            self.handlePresentedItemChange()
+            Self.registered(id: id)?.handlePresentedItemChange()
         }
     }
 
+    @MainActor
     func applyRecovery(_ payload: DocumentRecoveryPayload) {
         model.text = payload.text
         model.encoding = payload.encoding
@@ -144,7 +147,14 @@ final class NibDocument: NSDocument {
         model.originalBytes = nil
         session.applyFileText(payload.text)
         updateChangeCount(.changeDone)
-        MainActor.assumeIsolated { self.syncWindowChrome() }
+        syncWindowChrome()
+    }
+
+    @MainActor
+    private static func registered(id: UUID) -> NibDocument? {
+        NSDocumentController.shared.documents
+            .compactMap { $0 as? NibDocument }
+            .first { $0.recoveryID == id }
     }
 
     private func handleTextEdit(_ newValue: String) {
@@ -313,7 +323,8 @@ final class NibDocument: NSDocument {
         alert.informativeText = "Keep your unsaved edits, or reload the copy from disk?"
         alert.addButton(withTitle: "Keep My Changes")
         alert.addButton(withTitle: "Reload")
-        alert.beginSheetModal(for: window) { [weak self] response in
+        Task { @MainActor [weak self] in
+            let response = await alert.beginSheetModal(for: window)
             guard let self else { return }
             if response == .alertSecondButtonReturn {
                 self.reloadFromDiskQuietly()

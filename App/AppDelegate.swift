@@ -4,7 +4,7 @@ import NibDomain
 import NibServices
 
 @MainActor
-final class AppDelegate: NSObject, NSApplicationDelegate {
+final class AppDelegate: NSObject, @preconcurrency NSApplicationDelegate {
 
     func applicationWillFinishLaunching(_ notification: Notification) {
         _ = NibDocument.self
@@ -26,12 +26,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         true
     }
 
-    func application(_ sender: NSApplication, open urls: [URL]) {
-        for url in urls {
-            NSDocumentController.shared.openDocument(withContentsOf: url, display: true) { _, _, error in
-                if let error {
-                    AppLog.document.error("open URL failed \(error.localizedDescription, privacy: .public)")
-                }
+    /// Finder / `open -a` delivery. AppKit may import this requirement as
+    /// nonisolated; hop before touching NSDocumentController.
+    nonisolated func application(_ application: NSApplication, open urls: [URL]) {
+        let fileURLs = urls
+        Task { @MainActor in
+            for url in fileURLs {
+                Self.openDocument(at: url)
             }
         }
     }
@@ -71,11 +72,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if let path = payload.filePath {
             let url = URL(fileURLWithPath: path)
             if FileManager.default.fileExists(atPath: path) {
-                NSDocumentController.shared.openDocument(withContentsOf: url, display: true) { document, _, _ in
-                    Task { @MainActor in
-                        (document as? NibDocument)?.applyRecovery(payload)
-                    }
-                }
+                Self.openDocument(at: url, recovery: payload)
                 return
             }
         }
@@ -84,5 +81,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSDocumentController.shared.addDocument(document)
         document.makeWindowControllers()
         document.showWindows()
+    }
+
+    private static func openDocument(at url: URL, recovery: DocumentRecoveryPayload? = nil) {
+        let path = url.path
+        NSDocumentController.shared.openDocument(withContentsOf: url, display: true) { _, _, error in
+            let message = error?.localizedDescription
+            Task { @MainActor in
+                if let message {
+                    AppLog.document.error("open URL failed \(message, privacy: .public)")
+                    return
+                }
+                guard let recovery else { return }
+                let document = NSDocumentController.shared.documents
+                    .compactMap { $0 as? NibDocument }
+                    .first { $0.fileURL?.path == path }
+                document?.applyRecovery(recovery)
+            }
+        }
     }
 }
