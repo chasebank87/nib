@@ -1,5 +1,4 @@
 import AppKit
-import Combine
 import NibDomain
 import NibServices
 import NibUI
@@ -7,25 +6,21 @@ import SwiftUI
 
 @MainActor
 @objc(NibDocument)
-final class NibDocument: NSDocument, EditorDocumenting {
-    nonisolated let objectWillChange = ObservableObjectPublisher()
-
-    @Published var model = TextDocumentModel()
-    @Published var text = ""
-    @Published var isPalettePresented = false
+final class NibDocument: NSDocument {
+    let session = EditorSession()
 
     private let codec = UTF8DocumentCodec()
-    private var isApplyingFileContents = false
-    private var textObserver: AnyCancellable?
+    private var model = TextDocumentModel()
 
     override init() {
         super.init()
         hasUndoManager = true
-        textObserver = $text
-            .dropFirst()
-            .sink { [weak self] newValue in
-                self?.handleTextEdit(newValue)
-            }
+        session.onOpen = { NSDocumentController.shared.openDocument(nil) }
+        session.onSave = { [weak self] in self?.save(nil) }
+        session.onSaveAs = { [weak self] in self?.saveAs(nil) }
+        session.onTextChange = { [weak self] newValue in
+            self?.handleTextEdit(newValue)
+        }
     }
 
     override class var autosavesInPlace: Bool {
@@ -36,7 +31,7 @@ final class NibDocument: NSDocument, EditorDocumenting {
     override func makeWindowControllers() {
         let composition = AppComposition.shared
         let root = EditorShellView(
-            document: self,
+            session: session,
             theme: composition.resolvedTheme(),
             resolveTheme: { composition.resolvedTheme() },
             onToggleAppearance: {
@@ -65,40 +60,25 @@ final class NibDocument: NSDocument, EditorDocumenting {
             throw DocumentError.emptyTypeName
         }
         var snapshot = model
-        snapshot.text = text
+        snapshot.text = session.text
         return try codec.encode(snapshot)
     }
 
     override func read(from data: Data, ofType typeName: String) throws {
         _ = typeName
-        isApplyingFileContents = true
-        defer { isApplyingFileContents = false }
         model = try codec.decode(data)
-        text = model.text
+        session.applyFileText(model.text)
         syncWindowChrome()
     }
 
     override func write(to url: URL, ofType typeName: String) throws {
         try super.write(to: url, ofType: typeName)
-        model.text = text
+        model.text = session.text
         model.markSaved()
         syncWindowChrome()
     }
 
-    func performOpen() {
-        NSDocumentController.shared.openDocument(nil)
-    }
-
-    func performSave() {
-        save(nil)
-    }
-
-    func performSaveAs() {
-        saveAs(nil)
-    }
-
     private func handleTextEdit(_ newValue: String) {
-        guard isApplyingFileContents == false else { return }
         guard model.text != newValue else { return }
         model.replaceText(newValue)
         updateChangeCount(.changeDone)

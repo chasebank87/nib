@@ -1,19 +1,19 @@
 import NibDomain
 import SwiftUI
 
-public struct EditorShellView<Document: EditorDocumenting>: View {
-    @ObservedObject var document: Document
+public struct EditorShellView: View {
+    @ObservedObject var session: EditorSession
     @State private var theme: Theme
     let resolveTheme: () -> Theme
     let onToggleAppearance: () -> Void
 
     public init(
-        document: Document,
+        session: EditorSession,
         theme: Theme,
         resolveTheme: @escaping () -> Theme = { Theme.nibDark },
         onToggleAppearance: @escaping () -> Void
     ) {
-        self.document = document
+        self.session = session
         _theme = State(initialValue: theme)
         self.resolveTheme = resolveTheme
         self.onToggleAppearance = onToggleAppearance
@@ -40,21 +40,21 @@ public struct EditorShellView<Document: EditorDocumenting>: View {
     public var body: some View {
         ZStack {
             theme.color(.editorBackground).ignoresSafeArea()
-            EditorTextView(text: $document.text, theme: theme)
+            EditorTextView(text: $session.text, theme: theme)
                 .padding(.top, 2)
 
-            if document.isPalettePresented {
+            if session.isPalettePresented {
                 CommandPaletteView(
                     theme: theme,
                     commands: commands,
                     onSelect: perform,
-                    onDismiss: { document.isPalettePresented = false }
+                    onDismiss: { session.isPalettePresented = false }
                 )
             }
         }
         .frame(minWidth: 480, minHeight: 320)
         .onReceive(NotificationCenter.default.publisher(for: .nibToggleCommandPalette)) { _ in
-            document.isPalettePresented.toggle()
+            session.isPalettePresented.toggle()
         }
         .onReceive(NotificationCenter.default.publisher(for: .nibAppearanceDidChange)) { _ in
             theme = resolveTheme()
@@ -62,14 +62,14 @@ public struct EditorShellView<Document: EditorDocumenting>: View {
     }
 
     private func perform(_ command: EditorCommand) {
-        document.isPalettePresented = false
+        session.isPalettePresented = false
         switch command.id {
         case BuiltInCommandID.open:
-            document.performOpen()
+            session.performOpen()
         case BuiltInCommandID.save:
-            document.performSave()
+            session.performSave()
         case BuiltInCommandID.saveAs:
-            document.performSaveAs()
+            session.performSaveAs()
         case BuiltInCommandID.toggleAppearance:
             onToggleAppearance()
             theme = resolveTheme()
