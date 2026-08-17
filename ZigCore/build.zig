@@ -18,19 +18,14 @@ pub fn build(b: *std.Build) void {
     });
 
     // Apple ld requires 8-byte-aligned Mach-O archive members. Zig's llvm-ar
-    // does not emit that padding, so Xcode 16.4+/26 fails with:
-    //   ld: 64-bit mach-o member 'libnib_core_zcu.o' not 8-byte aligned
+    // does not emit that padding. Running libtool on the raw archive drops
+    // libnib_core_zcu.o; the script ranlib -D's first, then libtool.
     const lib_bin = if (builtin.os.tag == .macos and target.result.os.tag == .macos) blk: {
-        const libtool = b.addSystemCommand(&.{
-            "xcrun",
-            "libtool",
-            "-static",
-            "-no_warning_for_no_symbols",
-            "-o",
-        });
-        libtool.setName("libtool-repack-nib_core");
-        const aligned = libtool.addOutputFileArg("libnib_core.a");
-        libtool.addFileArg(lib.getEmittedBin());
+        const repack = b.addSystemCommand(&.{"/bin/sh"});
+        repack.setName("repack-nib_core-for-apple-ld");
+        repack.addFileArg(b.path("scripts/repack-archive-for-apple-ld.sh"));
+        repack.addFileArg(lib.getEmittedBin());
+        const aligned = repack.addOutputFileArg("libnib_core.a");
         break :blk aligned;
     } else lib.getEmittedBin();
 

@@ -52,7 +52,7 @@ Decisions are listed oldest-first. Status is `accepted` unless noted. Revisit wh
 
 **Rules.** Caller-owned input buffers; integer error codes; UTF-8 only; serialized calls until thread safety is documented; FFI tests independent of the GUI.
 
-**Apple ld.** On macOS, `zig build` plus `make zig` repack `libnib_core.a` with `xcrun libtool -static` so Apple `ld` accepts the archive. Do not skip that step and link Zig’s raw `llvm-ar` output.
+**Apple ld.** On macOS, `zig build` plus `make zig` rewrite `libnib_core.a` with `ranlib -D` and then `libtool -static`. `libtool` alone on Zig’s `llvm-ar` output drops `libnib_core_zcu.o` and the C ABI symbols vanish at link time. Do not link Zig’s raw archive.
 
 ## ADR-004 — Syntax highlighting and parsing
 
