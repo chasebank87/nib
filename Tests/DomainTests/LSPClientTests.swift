@@ -12,7 +12,7 @@ struct LSPJSONRPCTests {
         #expect(decoded == [message])
         #expect(buffer.isEmpty)
 
-        var partial = framed
+        let partial = framed
         let cut = partial.count / 2
         var firstHalf = partial.subdata(in: 0..<cut)
         let early = try LSPJSONRPC.decode(buffer: &firstHalf)
@@ -85,10 +85,11 @@ struct FakeLSPIntegrationTests {
         try await pair.client.start()
         let uri = URL(fileURLWithPath: "/tmp/hover.py")
         let identity = LSPDocumentIdentity(uri: uri, languageID: "python", version: 1)
+        let stream = await pair.client.diagnosticsUpdates
 
         var diagnostics: [Diagnostic] = []
         let diagnosticsTask = Task {
-            for await update in pair.client.diagnosticsUpdates {
+            for await update in stream {
                 diagnostics = update
                 break
             }

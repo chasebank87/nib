@@ -123,8 +123,8 @@ public actor LSPClient: LanguageServerClienting, DiagnosticPublishing {
         let items: [[String: Any]]
         if let list = result["items"] as? [[String: Any]] {
             items = list
-        } else if let bare = result as? [String: Any], bare["label"] != nil {
-            items = [bare]
+        } else if result["label"] != nil {
+            items = [result]
         } else {
             // Some servers return a bare array as the result root; our request helper
             // wraps objects only. Fall back to empty.
