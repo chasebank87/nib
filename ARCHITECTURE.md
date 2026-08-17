@@ -226,7 +226,7 @@ TextKit remains the live editing buffer so IME, undo, and accessibility stay nat
 
 v1 is not a plugin host. Extension points are in-process protocols:
 
-- `LanguageDetecting`, `SyntaxHighlighting` (Phase 2)
+- `LanguageDetecting`, `SyntaxHighlighting` (Phase 2 — Tree-sitter JSON/Markdown/Python + regex fallbacks)
 - `LanguageServerClienting`, `LanguageServerInstalling` (Phase 3)
 - `AIProvider`, `AgentTool`, `SecretStoring` (Phase 4–5)
 - `TextSurface` — so the renderer can be replaced without rewriting Domain
