@@ -65,7 +65,7 @@ Document-centric LSP with PATH auto-detection (Pyright, typescript-language-serv
 
 ### Phase 4 — AI selection actions
 
-Mock AI provider and Explain Selection (`⇧⌘E`) are wired locally. Keychain secrets, disclosure sheet polish, ghost text, and edit/fix actions follow.
+Mock AI provider with disclosure confirmation, Explain / Edit / Document Selection, Keychain API key storage in Settings, and Apply/Reject for proposed edits. Ghost text and HTTP providers follow.
 
 ### Phase 5 — Agents
 

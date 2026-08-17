@@ -65,12 +65,12 @@ Phases are capability slices, not calendar estimates. Each phase should leave `m
 
 **Goal.** Help on the selection without an agent.
 
-- Mock provider + one HTTP adapter behind `AIProvider` — **partial** (MockAIProvider + Explain Selection)
-- Keychain-backed `SecretStoring`
-- Context disclosure sheet — **partial** (disclosure fields populated; dedicated sheet UI follows)
+- Mock provider + one HTTP adapter behind `AIProvider` — **partial** (MockAIProvider; HTTP adapter follows)
+- Keychain-backed `SecretStoring` — **done**
+- Context disclosure sheet — **done**
 - Inline ghost text: accept, dismiss, partial accept if feasible
-- Explain / edit / document / generate / fix diagnostic / ask about this file — **partial** (Explain Selection)
-- All edits previewable and undoable
+- Explain / edit / document / generate / fix diagnostic / ask about this file — **partial** (Explain / Edit / Document Selection)
+- All edits previewable and undoable — **done** (Apply/Reject overlay + buffer replace)
 
 **Exit.** A user with no key still edits normally. A user with a mock provider can explain and edit a selection.
 
@@ -79,9 +79,9 @@ Phases are capability slices, not calendar estimates. Each phase should leave `m
 **Goal.** An agent that cannot act invisibly.
 
 - Orchestrator with visible plan, tool calls, and progress
-- `ToolPermission` grants and prompts
-- Tools: read file/selection, optional nearby context, granted workspace search, diagnostics, apply patch, approved command, Git status/diff
-- Compact diff review overlay
+- `ToolPermission` grants and prompts — **partial** (controller + apply/send gates used by AI edits)
+- Tools: read file/selection, optional nearby context, granted workspace search, diagnostics, apply patch, approved command, Git status/diff — **partial** (selection replace apply)
+- Compact diff review overlay — **partial** (proposed-edit review overlay)
 - No autonomous loops that write or execute without confirmation
 
 **Exit.** An agent run can propose a patch and apply it only after approval; denying a permission produces a clear, non-destructive outcome.

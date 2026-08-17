@@ -1,7 +1,7 @@
 import Foundation
 import NibDomain
 
-/// Test double. Production Keychain store is NIB-014.
+/// Test double for `SecretStoring`. Production uses `KeychainSecretStore`.
 public final class InMemorySecretStore: SecretStoring, @unchecked Sendable {
     private var secrets: [String: Data] = [:]
 

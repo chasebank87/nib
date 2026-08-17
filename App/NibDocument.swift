@@ -64,8 +64,14 @@ final class NibDocument: NSDocument {
             session.onRequestHover = { [weak self] in
                 self?.requestHover()
             }
-            session.onExplainSelection = { [weak self] in
-                self?.explainSelection()
+            session.onAIAction = { [weak self] kind in
+                self?.beginAIAction(kind)
+            }
+            session.onConfirmAIDisclosure = { [weak self] in
+                self?.confirmAIDisclosure()
+            }
+            session.onApplyAIEdit = { [weak self] in
+                self?.applyAIEdit()
             }
             self.session = session
             self.registerCommands()
@@ -298,7 +304,26 @@ final class NibDocument: NSDocument {
                 shortcutLabel: "⇧⌘E"
             )
         ) { [weak self] in
-            self?.explainSelection()
+            self?.beginAIAction(.explain)
+        }
+        commands.register(
+            EditorCommand(
+                id: BuiltInCommandID.editSelection,
+                title: "Edit Selection",
+                keywords: ["ai", "mock", "refactor", "edit"],
+                shortcutLabel: "⇧⌘R"
+            )
+        ) { [weak self] in
+            self?.beginAIAction(.edit)
+        }
+        commands.register(
+            EditorCommand(
+                id: BuiltInCommandID.documentSelection,
+                title: "Document Selection",
+                keywords: ["ai", "mock", "docstring", "comment"]
+            )
+        ) { [weak self] in
+            self?.beginAIAction(.document)
         }
         for language in LanguageDescriptor.priorityLanguages + [.plainText] {
             let id = "lang.\(language.id)"
@@ -731,11 +756,17 @@ final class NibDocument: NSDocument {
     }
 
     @MainActor
-    private func explainSelection() {
+    private func beginAIAction(_ kind: AIActionKind) {
         let selection = selectedText()
-        guard selection.isEmpty == false else {
-            session.aiResponseText = "Select some text first, then run Explain Selection."
-            session.isAIPresented = true
+        let range = session.selectionUTF16
+        guard selection.isEmpty == false, range.count > 0 else {
+            session.aiResult = AISessionResult(
+                title: kindTitle(kind),
+                text: "Select some text first.",
+                proposedEdit: nil,
+                selectionRange: 0..<0
+            )
+            session.isAIResultPresented = true
             return
         }
         let disclosure = ContextDisclosure(
@@ -745,26 +776,124 @@ final class NibDocument: NSDocument {
             includesRepositoryContext: false,
             includesCommandOutput: false
         )
-        let request = AIRequest(
-            instruction: "Explain this selection",
-            selectedText: selection,
-            fileText: nil,
+        session.isPalettePresented = false
+        session.isGoToLinePresented = false
+        session.isFindPresented = false
+        session.isCompletionPresented = false
+        session.isAIResultPresented = false
+        session.hoverText = nil
+        session.diagnosticHover = nil
+        session.aiResult = nil
+        session.aiPendingAction = AIPendingAction(
+            kind: kind,
+            selection: selection,
+            selectionRange: range,
             disclosure: disclosure
+        )
+        session.isAIDisclosurePresented = true
+    }
+
+    @MainActor
+    private func confirmAIDisclosure() {
+        guard let pending = session.aiPendingAction else { return }
+        session.isAIDisclosurePresented = false
+        let request = AIRequest(
+            instruction: pending.instruction,
+            selectedText: pending.selection,
+            fileText: nil,
+            disclosure: pending.disclosure
         )
         Task { @MainActor [weak self] in
             guard let self else { return }
             do {
+                try AppComposition.shared.toolPermissions.require(
+                    .sendToProvider,
+                    allowPromptGrant: true
+                )
                 let response = try await AppComposition.shared.aiProvider.complete(request)
-                self.session.aiResponseText = response.text
-                self.session.isAIPresented = true
+                self.session.aiResult = AISessionResult(
+                    title: pending.title,
+                    text: response.text,
+                    proposedEdit: response.proposedEdit,
+                    selectionRange: pending.selectionRange
+                )
+                self.session.isAIResultPresented = true
+                self.session.aiPendingAction = nil
             } catch AIProviderError.notConfigured {
-                self.session.aiResponseText =
-                    "AI is not configured. The mock provider is enabled by default in this build — check AppComposition."
-                self.session.isAIPresented = true
+                self.session.aiResult = AISessionResult(
+                    title: pending.title,
+                    text: "AI is not configured.",
+                    proposedEdit: nil,
+                    selectionRange: pending.selectionRange
+                )
+                self.session.isAIResultPresented = true
+                self.session.aiPendingAction = nil
+            } catch AIProviderError.permissionDenied {
+                self.session.aiResult = AISessionResult(
+                    title: pending.title,
+                    text: "Permission denied: send to provider.",
+                    proposedEdit: nil,
+                    selectionRange: pending.selectionRange
+                )
+                self.session.isAIResultPresented = true
+                self.session.aiPendingAction = nil
             } catch {
-                self.session.aiResponseText = error.localizedDescription
-                self.session.isAIPresented = true
+                self.session.aiResult = AISessionResult(
+                    title: pending.title,
+                    text: error.localizedDescription,
+                    proposedEdit: nil,
+                    selectionRange: pending.selectionRange
+                )
+                self.session.isAIResultPresented = true
+                self.session.aiPendingAction = nil
             }
+        }
+    }
+
+    @MainActor
+    private func applyAIEdit() {
+        guard let result = session.aiResult, let proposed = result.proposedEdit else { return }
+        do {
+            try AppComposition.shared.toolPermissions.require(
+                .applyEdits,
+                allowPromptGrant: true
+            )
+            let newText = try TextPatchApplier.replaceUTF16Range(
+                in: session.text,
+                range: result.selectionRange,
+                with: proposed
+            )
+            session.applyFileText(newText)
+            handleTextEdit(newText)
+            let inserted = (proposed as NSString).length
+            session.pendingCaretUTF16 = result.selectionRange.lowerBound + inserted
+            session.selectionUTF16 =
+                result.selectionRange.lowerBound..<(result.selectionRange.lowerBound + inserted)
+            session.isAIResultPresented = false
+            session.aiResult = nil
+        } catch AIProviderError.permissionDenied {
+            session.aiResult = AISessionResult(
+                title: result.title,
+                text: "Permission denied: apply edits.",
+                proposedEdit: proposed,
+                selectionRange: result.selectionRange
+            )
+        } catch {
+            session.aiResult = AISessionResult(
+                title: result.title,
+                text: error.localizedDescription,
+                proposedEdit: proposed,
+                selectionRange: result.selectionRange
+            )
+        }
+    }
+
+    @MainActor
+    private func kindTitle(_ kind: AIActionKind) -> String {
+        switch kind {
+        case .explain: return "Explain Selection"
+        case .edit: return "Edit Selection"
+        case .document: return "Document Selection"
         }
     }
 

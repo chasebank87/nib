@@ -9,4 +9,6 @@ public extension Notification.Name {
     static let nibComplete = Notification.Name("nib.complete")
     static let nibHover = Notification.Name("nib.hover")
     static let nibExplainSelection = Notification.Name("nib.explainSelection")
+    static let nibEditSelection = Notification.Name("nib.editSelection")
+    static let nibDocumentSelection = Notification.Name("nib.documentSelection")
 }

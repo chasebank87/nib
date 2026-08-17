@@ -56,6 +56,13 @@ struct NibApp: App {
                     NotificationCenter.default.post(name: .nibExplainSelection, object: nil)
                 }
                 .keyboardShortcut("e", modifiers: [.command, .shift])
+                Button("Edit Selection") {
+                    NotificationCenter.default.post(name: .nibEditSelection, object: nil)
+                }
+                .keyboardShortcut("r", modifiers: [.command, .shift])
+                Button("Document Selection") {
+                    NotificationCenter.default.post(name: .nibDocumentSelection, object: nil)
+                }
             }
             CommandMenu("View") {
                 Button("Command Palette") {
@@ -81,7 +88,8 @@ private struct EditorSettingsRoot: View {
     var body: some View {
         EditorSettingsView(
             settings: $controller.settings,
-            themes: AppComposition.shared.themeCatalog.themes
+            themes: AppComposition.shared.themeCatalog.themes,
+            secrets: AppComposition.shared.secrets
         )
     }
 }

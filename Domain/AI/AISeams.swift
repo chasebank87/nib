@@ -114,13 +114,13 @@ public protocol AIProvider: Sendable {
     func complete(_ request: AIRequest) async throws -> AIResponse
 }
 
-/// TODO(NIB-015): Execute only after the matching ToolPermission is granted.
+/// Execute only after the matching ToolPermission is granted (NIB-015).
 public protocol AgentTool: Sendable {
     var name: String { get }
     var requiredPermission: ToolPermission { get }
 }
 
-/// TODO(NIB-014): Keychain-backed production store. Never log secret bytes.
+/// Production Keychain store: `KeychainSecretStore` (NIB-014). Never log secret bytes.
 public protocol SecretStoring: Sendable {
     func store(account: String, secret: Data) throws
     func retrieve(account: String) throws -> Data?

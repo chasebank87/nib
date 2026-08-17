@@ -100,13 +100,29 @@ public struct EditorShellView: View {
                 }
             }
 
-            if session.isAIPresented, let response = session.aiResponseText {
-                AIExplainOverlayView(
-                    text: response,
+            if session.isAIDisclosurePresented, let pending = session.aiPendingAction {
+                ContextDisclosureView(
+                    disclosure: pending.disclosure,
+                    actionTitle: pending.title,
                     theme: session.theme,
+                    onConfirm: { session.onConfirmAIDisclosure() },
+                    onCancel: {
+                        session.isAIDisclosurePresented = false
+                        session.aiPendingAction = nil
+                    }
+                )
+            }
+
+            if session.isAIResultPresented, let result = session.aiResult {
+                AIResultOverlayView(
+                    title: result.title,
+                    text: result.text,
+                    proposedEdit: result.proposedEdit,
+                    theme: session.theme,
+                    onApply: result.proposedEdit == nil ? nil : { session.onApplyAIEdit() },
                     onDismiss: {
-                        session.isAIPresented = false
-                        session.aiResponseText = nil
+                        session.isAIResultPresented = false
+                        session.aiResult = nil
                     }
                 )
             }
@@ -134,8 +150,13 @@ public struct EditorShellView: View {
             session.onRequestHover()
         }
         .onReceive(NotificationCenter.default.publisher(for: .nibExplainSelection)) { _ in
-            session.dismissTransientOverlays()
-            session.onExplainSelection()
+            session.onAIAction(.explain)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .nibEditSelection)) { _ in
+            session.onAIAction(.edit)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .nibDocumentSelection)) { _ in
+            session.onAIAction(.document)
         }
         .onReceive(NotificationCenter.default.publisher(for: .nibAppearanceDidChange)) { _ in
             session.theme = resolveTheme()

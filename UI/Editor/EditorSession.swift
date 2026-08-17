@@ -15,7 +15,8 @@ public final class EditorSession: ObservableObject {
     @Published public var isGoToLinePresented: Bool
     @Published public var isFindPresented: Bool
     @Published public var isCompletionPresented: Bool
-    @Published public var isAIPresented: Bool
+    @Published public var isAIDisclosurePresented: Bool
+    @Published public var isAIResultPresented: Bool
     @Published public var caretUTF16: Int
     @Published public var selectionUTF16: Range<Int>
     @Published public var pendingCaretUTF16: Int?
@@ -34,7 +35,8 @@ public final class EditorSession: ObservableObject {
     @Published public var completions: [CompletionItem]
     @Published public var hoverText: String?
     @Published public var diagnosticHover: DiagnosticHover?
-    @Published public var aiResponseText: String?
+    @Published public var aiPendingAction: AIPendingAction?
+    @Published public var aiResult: AISessionResult?
     @Published public var lspStatus: String
 
     public let commands = CommandRegistry()
@@ -49,7 +51,9 @@ public final class EditorSession: ObservableObject {
     public var onRequestCompletions: () -> Void
     public var onInsertCompletion: (CompletionItem) -> Void
     public var onRequestHover: () -> Void
-    public var onExplainSelection: () -> Void
+    public var onAIAction: (AIActionKind) -> Void
+    public var onConfirmAIDisclosure: () -> Void
+    public var onApplyAIEdit: () -> Void
 
     private var isApplyingFileText = false
 
@@ -72,14 +76,17 @@ public final class EditorSession: ObservableObject {
         onRequestCompletions: @escaping () -> Void = {},
         onInsertCompletion: @escaping (CompletionItem) -> Void = { _ in },
         onRequestHover: @escaping () -> Void = {},
-        onExplainSelection: @escaping () -> Void = {}
+        onAIAction: @escaping (AIActionKind) -> Void = { _ in },
+        onConfirmAIDisclosure: @escaping () -> Void = {},
+        onApplyAIEdit: @escaping () -> Void = {}
     ) {
         self.text = text
         self.isPalettePresented = isPalettePresented
         self.isGoToLinePresented = isGoToLinePresented
         self.isFindPresented = isFindPresented
         self.isCompletionPresented = false
-        self.isAIPresented = false
+        self.isAIDisclosurePresented = false
+        self.isAIResultPresented = false
         self.caretUTF16 = 0
         self.selectionUTF16 = 0..<0
         self.settings = settings
@@ -102,7 +109,9 @@ public final class EditorSession: ObservableObject {
         self.onRequestHover = onRequestHover
         self.onRequestCompletions = onRequestCompletions
         self.onInsertCompletion = onInsertCompletion
-        self.onExplainSelection = onExplainSelection
+        self.onAIAction = onAIAction
+        self.onConfirmAIDisclosure = onConfirmAIDisclosure
+        self.onApplyAIEdit = onApplyAIEdit
     }
 
     public func applyFileText(_ value: String) {
@@ -143,10 +152,12 @@ public final class EditorSession: ObservableObject {
         isGoToLinePresented = false
         isFindPresented = false
         isCompletionPresented = false
-        isAIPresented = false
+        isAIDisclosurePresented = false
+        isAIResultPresented = false
         hoverText = nil
         diagnosticHover = nil
-        aiResponseText = nil
+        aiPendingAction = nil
+        aiResult = nil
     }
 
     public func runFind() {
@@ -189,5 +200,60 @@ public struct DiagnosticHover: Equatable, Sendable {
         self.message = message
         self.severity = severity
         self.anchorUTF16 = anchorUTF16
+    }
+}
+
+public enum AIActionKind: String, Equatable, Sendable {
+    case explain
+    case edit
+    case document
+}
+
+public struct AIPendingAction: Equatable, Sendable {
+    public var kind: AIActionKind
+    public var selection: String
+    public var selectionRange: Range<Int>
+    public var disclosure: ContextDisclosure
+
+    public init(
+        kind: AIActionKind,
+        selection: String,
+        selectionRange: Range<Int>,
+        disclosure: ContextDisclosure
+    ) {
+        self.kind = kind
+        self.selection = selection
+        self.selectionRange = selectionRange
+        self.disclosure = disclosure
+    }
+
+    public var title: String {
+        switch kind {
+        case .explain: return "Explain Selection"
+        case .edit: return "Edit Selection"
+        case .document: return "Document Selection"
+        }
+    }
+
+    public var instruction: String {
+        switch kind {
+        case .explain: return "Explain this selection"
+        case .edit: return "Edit this selection"
+        case .document: return "Document this selection"
+        }
+    }
+}
+
+public struct AISessionResult: Equatable, Sendable {
+    public var title: String
+    public var text: String
+    public var proposedEdit: String?
+    public var selectionRange: Range<Int>
+
+    public init(title: String, text: String, proposedEdit: String?, selectionRange: Range<Int>) {
+        self.title = title
+        self.text = text
+        self.proposedEdit = proposedEdit
+        self.selectionRange = selectionRange
     }
 }

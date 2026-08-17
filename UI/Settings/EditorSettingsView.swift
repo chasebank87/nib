@@ -1,13 +1,23 @@
 import NibDomain
+import NibServices
 import SwiftUI
 
 public struct EditorSettingsView: View {
     @Binding var settings: EditorSettings
     var themes: [Theme]
+    var secrets: SecretStoring
+    @State private var apiKeyDraft = ""
+    @State private var apiKeyStatus = "No key stored"
+    @State private var apiKeyMessage: String?
 
-    public init(settings: Binding<EditorSettings>, themes: [Theme] = Theme.builtIn) {
+    public init(
+        settings: Binding<EditorSettings>,
+        themes: [Theme] = Theme.builtIn,
+        secrets: SecretStoring = InMemorySecretStore()
+    ) {
         _settings = settings
         self.themes = themes
+        self.secrets = secrets
     }
 
     public var body: some View {
@@ -44,14 +54,71 @@ public struct EditorSettingsView: View {
                     Text(theme.name).tag(theme.id)
                 }
             }
+
+            Section("AI provider key") {
+                Text(apiKeyStatus)
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+                SecureField("API key", text: $apiKeyDraft)
+                HStack {
+                    Button("Save Key") { saveAPIKey() }
+                        .disabled(apiKeyDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    Button("Clear Key", role: .destructive) { clearAPIKey() }
+                }
+                if let apiKeyMessage {
+                    Text(apiKeyMessage)
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                }
+            }
         }
         .formStyle(.grouped)
-        .frame(width: 420, height: 520)
+        .frame(width: 440, height: 620)
+        .onAppear(perform: refreshAPIKeyStatus)
         .onChange(of: settings) { _, newValue in
             let sanitized = newValue.sanitized()
             if sanitized != newValue {
                 settings = sanitized
             }
+        }
+    }
+
+    private func refreshAPIKeyStatus() {
+        do {
+            if let data = try secrets.retrieve(account: KeychainSecretStore.providerAPIKeyAccount),
+               data.isEmpty == false
+            {
+                apiKeyStatus = "Key stored (\(data.count) bytes)"
+            } else {
+                apiKeyStatus = "No key stored"
+            }
+        } catch {
+            apiKeyStatus = "Unable to read key status"
+            apiKeyMessage = "Keychain error"
+        }
+    }
+
+    private func saveAPIKey() {
+        let trimmed = apiKeyDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.isEmpty == false, let data = trimmed.data(using: .utf8) else { return }
+        do {
+            try secrets.store(account: KeychainSecretStore.providerAPIKeyAccount, secret: data)
+            apiKeyDraft = ""
+            apiKeyMessage = "Saved to Keychain"
+            refreshAPIKeyStatus()
+        } catch {
+            apiKeyMessage = "Save failed"
+        }
+    }
+
+    private func clearAPIKey() {
+        do {
+            try secrets.delete(account: KeychainSecretStore.providerAPIKeyAccount)
+            apiKeyDraft = ""
+            apiKeyMessage = "Cleared"
+            refreshAPIKeyStatus()
+        } catch {
+            apiKeyMessage = "Clear failed"
         }
     }
 }

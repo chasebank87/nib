@@ -14,6 +14,7 @@ final class AppComposition: ObservableObject {
     let languageServers: LanguageServerController
     let secrets: SecretStoring
     let aiProvider: AIProvider
+    let toolPermissions: ToolPermissionController
     let languageDetector: LanguageDetecting
     let syntaxHighlighter: SyntaxHighlighting
     let themeCatalog: ThemeCatalog
@@ -24,8 +25,9 @@ final class AppComposition: ObservableObject {
         settings: SettingsStoring = UserDefaultsSettingsStore(),
         appearanceApplier: AppearanceApplying = AppKitAppearanceApplier(),
         languageServers: LanguageServerController? = nil,
-        secrets: SecretStoring = InMemorySecretStore(),
+        secrets: SecretStoring = KeychainSecretStore(),
         aiProvider: AIProvider = MockAIProvider(),
+        toolPermissions: ToolPermissionController? = nil,
         recovery: DocumentRecoveryStoring? = nil,
         languageDetector: LanguageDetecting = DefaultLanguageDetector(),
         syntaxHighlighter: SyntaxHighlighting = CompositeSyntaxHighlighter(),
@@ -35,6 +37,7 @@ final class AppComposition: ObservableObject {
         self.languageServers = languageServers ?? LanguageServerController()
         self.secrets = secrets
         self.aiProvider = aiProvider
+        self.toolPermissions = toolPermissions ?? ToolPermissionController()
         self.languageDetector = languageDetector
         self.syntaxHighlighter = syntaxHighlighter
         ThemeCatalog.ensureUserDirectoryExists()

@@ -39,10 +39,11 @@ See [PRODUCT.md](PRODUCT.md) for vision, non-goals, and MVP acceptance criteria.
 - Demo language server (FakeLSP): document sync, diagnostics, completions (`⌃Space`), hover
 - Real LSP over stdio with PATH auto-detection (Pyright, TypeScript LS, SourceKit, ZLS, …)
 - Diagnostics underlined in-editor with hover details; completions (`⌃Space`); hover (`⌥⌘.`)
-- Mock AI Explain Selection (`⇧⌘E`) — local only
+- Mock AI with disclosure sheet: Explain (`⇧⌘E`), Edit (`⇧⌘R`), Document Selection
+- Keychain API key storage in Settings; proposed edits Apply/Reject
 - Zig core linked through a C ABI, with a proof-of-integration API and tests
 
-**Designed from the start, implemented in later phases:** dedicated LSP install UI, Keychain AI providers, Git-aware status, agent tools with permission gates. The full map is in [ROADMAP.md](ROADMAP.md) and [BACKLOG.md](BACKLOG.md).
+**Designed from the start, implemented in later phases:** HTTP AI providers, ghost text, full agent orchestrator, Git-aware status. The full map is in [ROADMAP.md](ROADMAP.md) and [BACKLOG.md](BACKLOG.md).
 
 ## Architecture overview
 
