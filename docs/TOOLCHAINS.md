@@ -1,0 +1,62 @@
+# Toolchains
+
+Pin versions here when they change. Bump this file in the same commit as CI.
+
+## Current pins
+
+| Tool | Version | Notes |
+| --- | --- | --- |
+| macOS deployment target | 14.0 | Sonoma. TextKit 2 + SwiftUI windowing quality. |
+| Recommended host macOS | 15.x | Matches GitHub `macos-15` runners. |
+| Xcode | 16.0+ | Swift 6 language mode. |
+| Swift | 6.0+ | `swift-tools-version: 6.0` in `Package.swift`. |
+| Zig | 0.16.0 | [Official download](https://ziglang.org/download/). |
+| XcodeGen | 2.44+ | `brew install xcodegen` — used to generate `Nib.xcodeproj`. |
+| SwiftFormat | latest via Homebrew | `make format` |
+| SwiftLint | latest via Homebrew | `make lint` |
+
+## Install Zig
+
+```bash
+# macOS (Homebrew)
+brew install zig
+
+# Verify
+zig version   # expect 0.16.x
+```
+
+If Homebrew lags 0.16.0, use the official tarball for your arch from [ziglang.org/download](https://ziglang.org/download/) and put `zig` on `PATH`.
+
+Linux (for Zig-only tests):
+
+```bash
+curl -fsSL https://ziglang.org/download/0.16.0/zig-x86_64-linux-0.16.0.tar.xz | tar -xJ -C /tmp
+export PATH="/tmp/zig-x86_64-linux-0.16.0:$PATH"
+zig version
+```
+
+Archive names differ by arch (`aarch64-macos`, `x86_64-macos`, `aarch64-linux`, `x86_64-linux`). Confirm on the download page if a fetch 404s.
+
+## Xcode / Swift
+
+```bash
+xcode-select -p
+xcodebuild -version
+swift --version
+```
+
+This repository’s Linux/cloud agents typically **do not** have Xcode. Do not treat a missing `swift` binary as a project failure.
+
+## Generate and build the app
+
+```bash
+make zig
+xcodegen generate
+xcodebuild -scheme Nib -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO build
+```
+
+Or `make build` / `make run`.
+
+## CI
+
+[`.github/workflows/ci.yml`](../.github/workflows/ci.yml) runs on `macos-15`: install Zig 0.16.0, `make test-zig`, XcodeGen, `make test-swift`, `make build`.

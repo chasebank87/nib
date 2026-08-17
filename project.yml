@@ -1,0 +1,66 @@
+name: Nib
+options:
+  bundleIdPrefix: com.chaseelder
+  deploymentTarget:
+    macOS: "14.0"
+  createIntermediateGroups: true
+  groupSortPosition: top
+  xcodeVersion: "16.0"
+settings:
+  base:
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    SWIFT_VERSION: "6.0"
+    MACOSX_DEPLOYMENT_TARGET: "14.0"
+    ENABLE_USER_SCRIPT_SANDBOXING: NO
+    SWIFT_STRICT_CONCURRENCY: complete
+    CODE_SIGN_IDENTITY: "-"
+    AD_HOC_CODE_SIGNING_ALLOWED: YES
+
+packages:
+  Nib:
+    path: .
+
+targets:
+  Nib:
+    type: application
+    platform: macOS
+    sources:
+      - path: App
+      - path: Resources
+        buildPhase: resources
+        type: folder
+    dependencies:
+      - package: Nib
+        product: NibDomain
+      - package: Nib
+        product: NibServices
+      - package: Nib
+        product: NibCoreBridge
+      - package: Nib
+        product: NibUI
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.chaseelder.nib
+        PRODUCT_NAME: nib
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_FILE: App/Info.plist
+        INFOPLIST_KEY_CFBundleDisplayName: nib
+        INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.developer-tools
+        INFOPLIST_KEY_NSHumanReadableCopyright: Copyright © 2026 Chase Elder
+        INFOPLIST_KEY_NSPrincipalClass: NSApplication
+        CODE_SIGN_ENTITLEMENTS: App/nib.entitlements
+        LIBRARY_SEARCH_PATHS: "$(inherited) $(SRCROOT)/ZigCore/zig-out/lib"
+        OTHER_LDFLAGS: "$(inherited) -lnib_core"
+        LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/../Frameworks"
+    preBuildScripts:
+      - name: Build Zig Core
+        basedOnDependencyAnalysis: false
+        script: |
+          set -euo pipefail
+          cd "${SRCROOT}"
+          if ! command -v zig >/dev/null 2>&1; then
+            echo "error: zig is not on PATH. See docs/TOOLCHAINS.md"
+            exit 1
+          fi
+          make zig
