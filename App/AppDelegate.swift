@@ -4,11 +4,12 @@ import NibDomain
 import NibServices
 
 @MainActor
-final class AppDelegate: NSObject, @preconcurrency NSApplicationDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationWillFinishLaunching(_ notification: Notification) {
+        // Must exist before anything touches NSDocumentController.shared.
+        _ = NibDocumentController()
         _ = NibDocument.self
-        NSDocumentController.shared.maximumRecentDocumentCount = 12
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {

@@ -363,11 +363,12 @@ final class NibDocument: NSDocument {
         return path
     }
 
-    private static func modificationDate(at url: URL) -> Date? {
+    // NSDocument I/O overrides are nonisolated; keep these helpers callable there.
+    nonisolated private static func modificationDate(at url: URL) -> Date? {
         try? FileManager.default.attributesOfItem(atPath: url.path)[.modificationDate] as? Date
     }
 
-    private static func formatBytes(_ count: Int) -> String {
+    nonisolated private static func formatBytes(_ count: Int) -> String {
         let formatter = ByteCountFormatter()
         formatter.countStyle = .file
         return formatter.string(fromByteCount: Int64(count))
