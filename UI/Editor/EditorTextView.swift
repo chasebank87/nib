@@ -66,7 +66,6 @@ public struct EditorTextView: NSViewRepresentable {
         textView.enclosingScrollView?.drawsBackground = true
     }
 
-    @MainActor
     public final class Coordinator: NSObject, NSTextViewDelegate {
         var text: Binding<String>
 

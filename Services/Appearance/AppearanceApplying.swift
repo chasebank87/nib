@@ -7,7 +7,7 @@ public protocol AppearanceApplying: AnyObject {
 
 @MainActor
 public final class AppearanceController: ObservableObject {
-    public static let preferenceKey = "appearance.preference"
+    nonisolated public static let preferenceKey = "appearance.preference"
 
     @Published public var preference: AppearancePreference {
         didSet {

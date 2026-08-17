@@ -84,7 +84,7 @@ flowchart TB
 - Theme application to chrome and the text view
 - Accessibility adapters later (labels, rotors, custom AX for overlays)
 
-UI depends on Domain and Services. It does not import Zig or `CNibCore`.
+UI depends on Domain and Services. It does not import Zig or the C ABI header.
 
 ### Domain
 
