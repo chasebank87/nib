@@ -23,7 +23,7 @@ public struct CommandPaletteView: View {
     }
 
     private var filtered: [EditorCommand] {
-        commands.filter { CommandFilter.matches($0, query: query) }
+        CommandFilter.ranked(commands, query: query)
     }
 
     public var body: some View {
@@ -89,6 +89,11 @@ public struct CommandPaletteView: View {
                     .font(.system(size: 13, weight: selected ? .semibold : .regular))
                     .foregroundStyle(theme.color(.paletteForeground))
                 Spacer()
+                if let shortcut = command.shortcutLabel {
+                    Text(shortcut)
+                        .font(.system(size: 12, weight: .medium, design: .monospaced))
+                        .foregroundStyle(theme.color(.paletteForeground).opacity(0.45))
+                }
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 8)

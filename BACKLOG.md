@@ -18,6 +18,7 @@ Independently testable tickets. Status: `done` means this repository already inc
 
 ## NIB-001 — Encoding policy and line-ending hardening
 
+- **Status:** done
 - **Goal:** Never silently corrupt bytes; preserve LF/CRLF/CR on round-trip, including mixed-ending detection.
 - **Scope:** `TextDocumentModel` + `UTF8DocumentCodec` (+ future encoding table). User-facing error when validation fails. Optional “open as Latin-1 / convert to UTF-8” comes later — this ticket only refuses or documents conversion.
 - **Acceptance:** LF, CRLF, and CR fixtures save back identically. Invalid UTF-8 throws `DocumentError.invalidUTF8` and does not produce a document. Mixed endings pick a documented rule and do not crash.
@@ -29,6 +30,7 @@ Independently testable tickets. Status: `done` means this repository already inc
 
 ## NIB-002 — Autosave and recovery policy
 
+- **Status:** done
 - **Goal:** Predictable behavior on crash and sleep.
 - **Scope:** Decide `autosavesInPlace` vs app-support recovery copies. Document in PRODUCT/ARCHITECTURE. Implement the chosen path on `NibDocument`.
 - **Acceptance:** Written policy. Killing the app after an edit either restores the buffer or clearly does not — no half-written files. Tests for the recovery serializer if app-support copies are used.
@@ -40,6 +42,7 @@ Independently testable tickets. Status: `done` means this repository already inc
 
 ## NIB-003 — Go to line and column
 
+- **Status:** done
 - **Goal:** Jump from the keyboard.
 - **Scope:** Command + overlay or panel; parse `line`, `line:column`. Move TextKit selection. Palette entry.
 - **Acceptance:** `12` and `12:4` move the caret; out-of-range clamps; works on empty documents.
@@ -51,6 +54,7 @@ Independently testable tickets. Status: `done` means this repository already inc
 
 ## NIB-004 — Editor settings persistence
 
+- **Status:** done
 - **Goal:** Font, size, line height, tab width, tabs-vs-spaces, wrapping, ligatures persist across launches.
 - **Scope:** Domain `EditorSettings`, `SettingsStoring` implementation, apply to `NSTextView`. No theme editor.
 - **Acceptance:** Changing tab width and font survives relaunch (unit test with memory store + a UserDefaults suite). Invalid stored values fall back to defaults.
@@ -62,6 +66,7 @@ Independently testable tickets. Status: `done` means this repository already inc
 
 ## NIB-005 — Command registry
 
+- **Status:** done
 - **Goal:** Palette lists real, filterable commands instead of a hard-coded quartet.
 - **Scope:** `CommandRegistry` with id, title, keywords, keyboard shortcut, enabled predicate, `async` perform. Palette fuzzy filter. Menu items can share ids.
 - **Acceptance:** Registering a command makes it appear and run; disabled commands are hidden or dimmed per a documented rule; filter is stable for empty query.
@@ -73,6 +78,7 @@ Independently testable tickets. Status: `done` means this repository already inc
 
 ## NIB-006 — File watcher and external-change conflict
 
+- **Status:** done
 - **Goal:** Detect disk changes while a document is open.
 - **Scope:** `DispatchSource` / `NSFilePresenter` on `NibDocument`. Alert: keep, reload, or compare later. No silent overwrite.
 - **Acceptance:** Touching the file on disk with the window open presents a conflict path. Reloading a clean document updates the buffer. Dirty + external change never discards without confirmation.
@@ -117,6 +123,7 @@ Independently testable tickets. Status: `done` means this repository already inc
 
 ## NIB-010 — Large-file thresholds
 
+- **Status:** partial (Phase 1 warning + wrap-off; full capability matrix waits on highlighting)
 - **Goal:** Never freeze the app on a huge log or generated file.
 - **Scope:** Domain constants + `DocumentCapability` flags. Disable wrap, live highlight, minimap, and LSP above thresholds. Warn on open.
 - **Acceptance:** Opening a generated multi-megabyte fixture does not beachball in a timed test harness; UI shows reduced-feature state. Thresholds documented.

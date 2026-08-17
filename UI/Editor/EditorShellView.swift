@@ -1,82 +1,111 @@
 import NibDomain
 import SwiftUI
+import UniformTypeIdentifiers
 
 public struct EditorShellView: View {
     @ObservedObject var session: EditorSession
-    @State private var theme: Theme
     let resolveTheme: () -> Theme
-    let onToggleAppearance: () -> Void
+    let resolveSettings: () -> EditorSettings
 
     public init(
         session: EditorSession,
         theme: Theme,
         resolveTheme: @escaping () -> Theme = { Theme.nibDark },
-        onToggleAppearance: @escaping () -> Void
+        resolveSettings: @escaping () -> EditorSettings = { .default }
     ) {
         self.session = session
-        _theme = State(initialValue: theme)
         self.resolveTheme = resolveTheme
-        self.onToggleAppearance = onToggleAppearance
-    }
-
-    private var commands: [EditorCommand] {
-        [
-            EditorCommand(id: BuiltInCommandID.open, title: "Open…", keywords: ["file"]),
-            EditorCommand(id: BuiltInCommandID.save, title: "Save", keywords: ["file"]),
-            EditorCommand(id: BuiltInCommandID.saveAs, title: "Save As…", keywords: ["file", "export"]),
-            EditorCommand(
-                id: BuiltInCommandID.toggleAppearance,
-                title: "Toggle Appearance",
-                keywords: ["theme", "dark", "light"]
-            ),
-            EditorCommand(
-                id: BuiltInCommandID.togglePalette,
-                title: "Close Command Palette",
-                keywords: ["dismiss"]
-            ),
-        ]
+        self.resolveSettings = resolveSettings
+        session.theme = theme
+        session.settings = resolveSettings()
     }
 
     public var body: some View {
         ZStack {
-            theme.color(.editorBackground).ignoresSafeArea()
-            EditorTextView(text: $session.text, theme: theme)
-                .padding(.top, 2)
+            session.theme.color(.editorBackground).ignoresSafeArea()
+            VStack(spacing: 0) {
+                if let message = session.reducedFeatureMessage {
+                    Text(message)
+                        .font(.system(size: 12))
+                        .foregroundStyle(session.theme.color(.editorForeground).opacity(0.8))
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(session.theme.color(.gutterBackground))
+                }
+                EditorTextView(
+                    text: $session.text,
+                    pendingCaretUTF16: $session.pendingCaretUTF16,
+                    theme: session.theme,
+                    settings: session.settings,
+                    wrapLines: session.settings.wrapLines && session.reducedFeatureMessage == nil
+                )
+            }
+            .padding(.top, 2)
 
             if session.isPalettePresented {
                 CommandPaletteView(
-                    theme: theme,
-                    commands: commands,
-                    onSelect: perform,
+                    theme: session.theme,
+                    commands: session.commands.visibleCommands(),
+                    onSelect: { command in
+                        session.isPalettePresented = false
+                        session.commands.perform(command.id)
+                    },
                     onDismiss: { session.isPalettePresented = false }
+                )
+            }
+
+            if session.isGoToLinePresented {
+                GoToLineView(
+                    theme: session.theme,
+                    onGo: { session.goTo($0) },
+                    onDismiss: { session.isGoToLinePresented = false }
                 )
             }
         }
         .frame(minWidth: 480, minHeight: 320)
+        .onDrop(of: [UTType.fileURL], isTargeted: nil, perform: handleDrop)
         .onReceive(NotificationCenter.default.publisher(for: .nibToggleCommandPalette)) { _ in
+            session.isGoToLinePresented = false
             session.isPalettePresented.toggle()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .nibGoToLine)) { _ in
+            session.isPalettePresented = false
+            session.isGoToLinePresented = true
+        }
         .onReceive(NotificationCenter.default.publisher(for: .nibAppearanceDidChange)) { _ in
-            theme = resolveTheme()
+            session.theme = resolveTheme()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .nibEditorSettingsDidChange)) { _ in
+            session.settings = resolveSettings()
+        }
+        .onAppear {
+            session.theme = resolveTheme()
+            session.settings = resolveSettings()
         }
     }
 
-    private func perform(_ command: EditorCommand) {
-        session.isPalettePresented = false
-        switch command.id {
-        case BuiltInCommandID.open:
-            session.performOpen()
-        case BuiltInCommandID.save:
-            session.performSave()
-        case BuiltInCommandID.saveAs:
-            session.performSaveAs()
-        case BuiltInCommandID.toggleAppearance:
-            onToggleAppearance()
-            theme = resolveTheme()
-        case BuiltInCommandID.togglePalette:
-            break
-        default:
-            break
+    private func handleDrop(providers: [NSItemProvider]) -> Bool {
+        var claimed = false
+        for provider in providers {
+            if provider.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier) {
+                claimed = true
+                provider.loadItem(forTypeIdentifier: UTType.fileURL.identifier, options: nil) { item, _ in
+                    let url: URL?
+                    if let itemURL = item as? URL {
+                        url = itemURL
+                    } else if let data = item as? Data {
+                        url = URL(dataRepresentation: data, relativeTo: nil)
+                    } else {
+                        url = nil
+                    }
+                    guard let url else { return }
+                    DispatchQueue.main.async {
+                        self.session.onOpenURLs([url])
+                    }
+                }
+            }
         }
+        return claimed
     }
 }

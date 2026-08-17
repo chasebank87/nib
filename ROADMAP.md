@@ -20,16 +20,16 @@ Phases are capability slices, not calendar estimates. Each phase should leave `m
 
 **Goal.** Daily-driver plain-text editing.
 
-- Encoding policy beyond UTF-8; refuse or convert explicitly
-- Line-ending preservation hardened (mixed endings)
-- Autosave and crash recovery that is predictable
-- Go to line/column
-- Editor settings: font family/size, ligatures, line height, tabs/spaces, tab width, wrapping, whitespace
-- File watching and external-change conflict
-- Drag and drop onto the dock/window
-- Recent files, Finder reveal
-- Title/subtitle path
-- Large-file warning threshold (even if reduced-feature mode is still crude)
+- Encoding policy beyond UTF-8; refuse or convert explicitly — **done (UTF-8 / UTF-8 BOM only; UTF-16 refused)**
+- Line-ending preservation hardened (mixed endings) — **done**
+- Autosave and crash recovery that is predictable — **done (explicit save + Application Support recovery)**
+- Go to line/column — **done (`⌘L`)**
+- Editor settings: font family/size, ligatures, line height, tabs/spaces, tab width, wrapping — **done**
+- File watching and external-change conflict — **done**
+- Drag and drop onto the dock/window — **done**
+- Recent files, Finder reveal — **done**
+- Title/subtitle path — **done** (`representedURL` + subtitle)
+- Large-file warning threshold (even if reduced-feature mode is still crude) — **done**
 
 **Exit.** PRODUCT.md MVP acceptance criteria 1–9.
 

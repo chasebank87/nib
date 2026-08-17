@@ -109,10 +109,10 @@ Start with a **mock provider** (Phase 4). No vendor SDK in Domain. Keys via `Sec
 **Decision.**
 
 - Document bytes: user-chosen paths via `NSDocument`. No extra copy of source in app support unless recovery requires it (Phase 1 policy).
-- Preferences: `UserDefaults` for this slice (appearance). File-backed JSON settings later if they grow.
+- Preferences: `UserDefaults` for appearance and editor settings.
 - Recent files: `NSDocumentController`.
 - API keys (Phase 4): Keychain through `SecretStoring`. Never UserDefaults, never gitignored dotenv files in-repo.
-- Recovery: design in Phase 1; do not invent a second document store now.
+- Recovery: dirty buffers are snapshotted under Application Support (`com.chaseelder.nib/Recovery`). The original file is never autosaved in place.
 - Telemetry: not implemented.
 
 ## ADR-009 — App Sandbox off for v1
@@ -122,3 +122,13 @@ Start with a **mock provider** (Phase 4). No vendor SDK in Domain. Keys via `Sec
 **Decision.** Do not enable App Sandbox in v1. Keep the door open for Hardened Runtime + notarization. Revisit sandboxing when the tool permission model and security-scoped bookmarks can cover real workflows.
 
 **Consequence.** This is a developer tool, not an App Store submission, until a later decision.
+
+## ADR-010 — Explicit save, recovery copies
+
+**Context.** In-place autosave recovers crashes well but can overwrite the user’s file with a half-edited buffer. Classic Mac documents prompt on close and only write on Save.
+
+**Decision.** `NSDocument.autosavesInPlace` is `false`. Saves are explicit. While a document is dirty, nib writes a JSON recovery snapshot to `~/Library/Application Support/com.chaseelder.nib/Recovery/`. On the next launch, if snapshots exist, the user can restore or discard them. Successful save or close deletes that document’s snapshot.
+
+**Line endings.** In-memory text is LF. Save restores the detected ending. Mixed files keep original bytes until the first edit, then save using the majority ending (tie: CRLF, then LF, then CR).
+
+**Encodings.** UTF-8 and UTF-8 with BOM only. UTF-16 BOMs are refused. Invalid UTF-8 is refused. No silent recode.

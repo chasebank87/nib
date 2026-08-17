@@ -47,13 +47,13 @@ The user is keyboard-fluent, appearance-sensitive, and skeptical of tools that s
 
 ## Feature requirements by phase
 
-### Phase 0 — Foundation (this repository)
+### Phase 0 — Foundation
 
-Inception documents, module boundaries, buildable app slice, Zig FFI proof, theme tokens, command palette placeholder, tests for the document model and bridge.
+Inception documents, module boundaries, buildable app slice, Zig FFI proof, theme tokens, command palette, tests for the document model and bridge.
 
-### Phase 1 — Native file editor MVP
+### Phase 1 — Native file editor MVP (this repository)
 
-Reliable open/edit/save, encodings policy, line-ending preservation, autosave/recovery policy, go to line, editor settings (font, tabs, wrap), file watching, external-change conflict, drag and drop, recent files, Finder reveal.
+Reliable open/edit/save, encodings policy, line-ending preservation, recovery snapshots (no in-place autosave), go to line, editor settings (font, tabs, wrap), file watching, external-change conflict, drag and drop, recent files, Finder reveal.
 
 ### Phase 2 — Themes, syntax, search
 
@@ -89,7 +89,7 @@ The **product MVP** is Phase 1 complete, not merely this slice. Phase 1 is accep
 8. The app works offline with no AI or LSP configured.
 9. Automated tests cover the document codec and Zig FFI; CI builds on macOS.
 
-**This slice** additionally requires: Zig core linked, two built-in themes, palette placeholder, and documented seams for LSP/AI/buffer work.
+**This slice** additionally requires: Zig core linked, two built-in themes, a command registry in the palette, and documented seams for LSP/AI/buffer work.
 
 ## Assumptions
 

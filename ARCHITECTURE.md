@@ -90,17 +90,19 @@ UI depends on Domain and Services. It does not import Zig or the C ABI header.
 
 Pure models and protocols. No AppKit except where a type is an unavoidable system alias (none in this slice).
 
-- `TextDocumentModel`, encodings, line endings, document errors
+- `TextDocumentModel`, encodings, line endings, document errors, recovery payload
 - Theme tokens and theme documents
-- Editor commands
+- Editor commands and `CommandRegistry`
+- Go-to-line parser
 - Language descriptors and detection protocol
 - Diagnostics, completions, and LSP document identity (seams)
 - AI request/response, tool calls, and permission flags (seams)
 
 ### Services
 
-- UTF-8 document codec (uses CoreBridge for validation)
-- Settings persistence (`UserDefaults` today; file-backed settings later)
+- UTF-8 document codec (uses CoreBridge for validation; preserves BOM and original mixed-ending bytes until edit)
+- Settings persistence (`UserDefaults` for appearance and editor settings)
+- Recovery snapshots in Application Support (not in-place autosave)
 - Appearance preference application
 - Logging via `os.Logger` only
 - Protocol stubs for LSP, AI providers, secret storage, and Git
@@ -121,10 +123,10 @@ Not planned for Zig: UI, LSP JSON-RPC, HTTP, Keychain, `NSFileCoordinator`.
 
 ### Tests
 
-- `Tests/DomainTests` — document model, themes, commands
+- `Tests/DomainTests` — document model, encodings, commands, settings, recovery
 - `Tests/CoreBridgeTests` — FFI contract
 - `ZigCore` tests — Zig-side behavior without Swift
-- App UI tests — later (Phase 1+)
+- App UI tests — later (Phase 6)
 
 ## Dependency rules
 
