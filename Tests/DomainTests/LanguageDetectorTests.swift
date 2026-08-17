@@ -45,4 +45,43 @@ struct LanguageDetectorTests {
         )
         #expect(docker.id == "dockerfile")
     }
+
+    @Test func contentHeuristicsForUntitledBuffers() {
+        let python = detector.detect(
+            url: nil,
+            firstLine: "def hello_world():",
+            content: "def hello_world():\n    print(\"hello\")\n",
+            overrideID: nil
+        )
+        #expect(python.id == "python")
+
+        let swift = detector.detect(
+            url: nil,
+            firstLine: "import Foundation",
+            content: "import Foundation\n\nfunc main() {}\n",
+            overrideID: nil
+        )
+        #expect(swift.id == "swift")
+
+        let json = detector.detect(
+            url: nil,
+            firstLine: "{",
+            content: "{\n  \"ok\": true\n}\n",
+            overrideID: nil
+        )
+        #expect(json.id == "json")
+
+        let empty = detector.detect(url: nil, firstLine: nil, content: "   \n", overrideID: nil)
+        #expect(empty == .plainText)
+    }
+
+    @Test func extensionWinsOverContentHeuristics() {
+        let zig = detector.detect(
+            url: URL(fileURLWithPath: "/tmp/core.zig"),
+            firstLine: "def not_python():",
+            content: "def not_python():\n    pass\n",
+            overrideID: nil
+        )
+        #expect(zig.id == "zig")
+    }
 }

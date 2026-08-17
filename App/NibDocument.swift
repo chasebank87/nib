@@ -467,6 +467,9 @@ final class NibDocument: NSDocument {
     private func scheduleLanguageServerSync(forceReopen: Bool) {
         lspSyncTask?.cancel()
         lspSyncTask = Task { @MainActor [weak self] in
+            if forceReopen == false {
+                try? await Task.sleep(nanoseconds: 150_000_000)
+            }
             guard Task.isCancelled == false else { return }
             await self?.syncLanguageServerDocument(forceReopen: forceReopen)
         }
@@ -616,12 +619,7 @@ final class NibDocument: NSDocument {
     @MainActor
     private func scheduleLanguageServerChange() {
         guard session.capabilities.languageServers else { return }
-        lspSyncTask?.cancel()
-        lspSyncTask = Task { @MainActor [weak self] in
-            try? await Task.sleep(nanoseconds: 150_000_000)
-            guard Task.isCancelled == false else { return }
-            await self?.syncLanguageServerDocument(forceReopen: false)
-        }
+        scheduleLanguageServerSync(forceReopen: false)
     }
 
     @MainActor
