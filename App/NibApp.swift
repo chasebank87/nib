@@ -39,7 +39,7 @@ struct NibApp: App {
                 }
                 .keyboardShortcut("r", modifiers: [.command, .option])
             }
-            CommandGroup(replacing: .textFinding) {
+            CommandGroup(after: .pasteboard) {
                 Button("Find…") {
                     NotificationCenter.default.post(name: .nibFind, object: nil)
                 }

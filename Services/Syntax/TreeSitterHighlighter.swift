@@ -49,16 +49,18 @@ public struct TreeSitterHighlighter: SyntaxHighlighting, @unchecked Sendable {
     }
 
     private static func languagePointer(for languageID: String) -> OpaquePointer? {
+        let pointer: OpaquePointer?
         switch languageID {
         case "json":
-            return tree_sitter_json()
+            pointer = tree_sitter_json()
         case "python":
-            return tree_sitter_python()
+            pointer = tree_sitter_python()
         case "markdown":
-            return tree_sitter_markdown()
+            pointer = tree_sitter_markdown()
         default:
-            return nil
+            pointer = nil
         }
+        return pointer
     }
 
     private static func parse(
@@ -96,7 +98,9 @@ public struct TreeSitterHighlighter: SyntaxHighlighting, @unchecked Sendable {
             )
         }
         guard let query else {
-            throw SyntaxHighlightError.queryFailed("query error \(Int(errorType.rawValue)) at \(errorOffset)")
+            throw SyntaxHighlightError.queryFailed(
+                "query error \(Int(errorType.rawValue)) at \(errorOffset)"
+            )
         }
         defer { ts_query_delete(query) }
 
@@ -116,7 +120,8 @@ public struct TreeSitterHighlighter: SyntaxHighlighting, @unchecked Sendable {
             for index in 0..<count {
                 let capture = base.advanced(by: index).pointee
                 var nameLength: UInt32 = 0
-                guard let namePointer = ts_query_capture_name_for_id(query, capture.index, &nameLength) else {
+                guard let namePointer = ts_query_capture_name_for_id(query, capture.index, &nameLength)
+                else {
                     continue
                 }
                 let scope = String(cString: namePointer)

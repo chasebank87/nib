@@ -26,6 +26,7 @@ struct ThemeTests {
 
     @Test func syntaxScopeMapsToToken() {
         #expect(Theme.nibDark.token(forSyntaxScope: "keyword") == .syntaxKeyword)
+        #expect(Theme.nibDark.token(forSyntaxScope: "string.special.key") == .syntaxVariable)
         #expect(Theme.nibLight.token(forSyntaxScope: "missing") == nil)
     }
 
