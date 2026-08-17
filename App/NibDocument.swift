@@ -7,8 +7,9 @@ import SwiftUI
 @objc(NibDocument)
 final class NibDocument: NSDocument {
     private let codec = UTF8DocumentCodec()
-    private var model = TextDocumentModel()
-    private var session: EditorSession!
+    /// NSDocument callbacks run on the main thread; isolation is not reflected in the AppKit overrides.
+    nonisolated(unsafe) private var model = TextDocumentModel()
+    nonisolated(unsafe) private var session: EditorSession!
 
     override init() {
         super.init()
@@ -65,7 +66,7 @@ final class NibDocument: NSDocument {
             throw DocumentError.emptyTypeName
         }
         var snapshot = model
-        snapshot.text = MainActor.assumeIsolated { session.text }
+        snapshot.text = session.text
         return try codec.encode(snapshot)
     }
 
@@ -73,19 +74,15 @@ final class NibDocument: NSDocument {
         _ = typeName
         let decoded = try codec.decode(data)
         model = decoded
-        MainActor.assumeIsolated {
-            self.session.applyFileText(decoded.text)
-            self.syncWindowChrome()
-        }
+        session.applyFileText(decoded.text)
+        syncWindowChrome()
     }
 
     override func write(to url: URL, ofType typeName: String) throws {
         try super.write(to: url, ofType: typeName)
-        MainActor.assumeIsolated {
-            self.model.text = self.session.text
-            self.model.markSaved()
-            self.syncWindowChrome()
-        }
+        model.text = session.text
+        model.markSaved()
+        syncWindowChrome()
     }
 
     private func handleTextEdit(_ newValue: String) {

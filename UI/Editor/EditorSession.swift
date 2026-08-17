@@ -1,7 +1,6 @@
 import Combine
 import Foundation
 
-@MainActor
 public final class EditorSession: ObservableObject {
     @Published public var text: String {
         didSet {
