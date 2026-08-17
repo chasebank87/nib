@@ -21,186 +21,149 @@ public struct EditorShellView: View {
     }
 
     public var body: some View {
+        content
+            .frame(minWidth: 480, minHeight: 320)
+            .onDrop(of: [UTType.fileURL], isTargeted: nil, perform: handleDrop)
+            .modifier(EditorShellNotifications(
+                session: session,
+                resolveTheme: resolveTheme,
+                resolveSettings: resolveSettings
+            ))
+            .onAppear {
+                session.theme = resolveTheme()
+                session.settings = resolveSettings()
+            }
+    }
+
+    private var content: some View {
         ZStack {
             session.theme.color(.editorBackground).ignoresSafeArea()
-            VStack(spacing: 0) {
-                EditorTextView(
-                    text: $session.text,
-                    caretUTF16: $session.caretUTF16,
-                    selectionUTF16: $session.selectionUTF16,
-                    pendingCaretUTF16: $session.pendingCaretUTF16,
-                    pendingSelectionUTF16: $session.pendingSelectionUTF16,
-                    diagnosticHover: $session.diagnosticHover,
-                    ghostSuggestion: session.ghostSuggestion,
-                    theme: session.theme,
-                    settings: session.settings,
-                    capabilities: session.capabilities,
-                    syntaxCaptures: session.syntaxCaptures,
-                    findMatches: session.findMatches,
-                    diagnostics: session.diagnostics,
-                    wrapLines: session.settings.wrapLines
-                        && session.capabilities.wrapLines
-                        && session.reducedFeatureMessage == nil,
-                    onAcceptGhost: { session.onAcceptGhost($0) },
-                    onDismissGhost: { session.onDismissGhost() },
-                    onCaretMoved: { session.clearGhostIfCaretMoved() }
-                )
+            editorColumn
+            transientOverlays
+            aiOverlays
+        }
+    }
 
-                statusBar
-            }
+    private var editorColumn: some View {
+        VStack(spacing: 0) {
+            EditorTextView(
+                text: $session.text,
+                caretUTF16: $session.caretUTF16,
+                selectionUTF16: $session.selectionUTF16,
+                pendingCaretUTF16: $session.pendingCaretUTF16,
+                pendingSelectionUTF16: $session.pendingSelectionUTF16,
+                diagnosticHover: $session.diagnosticHover,
+                ghostSuggestion: session.ghostSuggestion,
+                theme: session.theme,
+                settings: session.settings,
+                capabilities: session.capabilities,
+                syntaxCaptures: session.syntaxCaptures,
+                findMatches: session.findMatches,
+                diagnostics: session.diagnostics,
+                wrapLines: session.settings.wrapLines
+                    && session.capabilities.wrapLines
+                    && session.reducedFeatureMessage == nil,
+                onAcceptGhost: { session.onAcceptGhost($0) },
+                onDismissGhost: { session.onDismissGhost() },
+                onCaretMoved: { session.clearGhostIfCaretMoved() }
+            )
+            statusBar
+        }
+    }
 
-            if session.isPalettePresented {
-                CommandPaletteView(
-                    theme: session.theme,
-                    commands: session.commands.visibleCommands(),
-                    onSelect: { command in
-                        session.isPalettePresented = false
-                        session.commands.perform(command.id)
-                    },
-                    onDismiss: { session.isPalettePresented = false }
-                )
-            }
-
-            if session.isGoToLinePresented {
-                GoToLineView(
-                    theme: session.theme,
-                    onGo: { session.goTo($0) },
-                    onDismiss: { session.isGoToLinePresented = false }
-                )
-            }
-
-            if session.isFindPresented {
-                FindReplaceView(
-                    options: $session.findOptions,
-                    status: session.findStatus,
-                    theme: session.theme,
-                    onFind: { session.runFind() },
-                    onReplaceAll: { session.runReplaceAll() },
-                    onDismiss: {
-                        session.isFindPresented = false
-                        session.findMatches = []
-                        session.findStatus = nil
-                    }
-                )
-            }
-
-            if session.isCompletionPresented {
-                CompletionOverlayView(
-                    items: session.completions,
-                    theme: session.theme,
-                    onSelect: { session.onInsertCompletion($0) },
-                    onDismiss: {
-                        session.isCompletionPresented = false
-                        session.completions = []
-                    }
-                )
-            }
-
-            if let hover = session.diagnosticHover {
-                diagnosticTooltip(hover)
-            } else if let hover = session.hoverText {
-                bottomOverlay(text: hover) {
-                    session.hoverText = nil
+    @ViewBuilder
+    private var transientOverlays: some View {
+        if session.isPalettePresented {
+            CommandPaletteView(
+                theme: session.theme,
+                commands: session.commands.visibleCommands(),
+                onSelect: { command in
+                    session.isPalettePresented = false
+                    session.commands.perform(command.id)
+                },
+                onDismiss: { session.isPalettePresented = false }
+            )
+        }
+        if session.isGoToLinePresented {
+            GoToLineView(
+                theme: session.theme,
+                onGo: { session.goTo($0) },
+                onDismiss: { session.isGoToLinePresented = false }
+            )
+        }
+        if session.isFindPresented {
+            FindReplaceView(
+                options: $session.findOptions,
+                status: session.findStatus,
+                theme: session.theme,
+                onFind: { session.runFind() },
+                onReplaceAll: { session.runReplaceAll() },
+                onDismiss: {
+                    session.isFindPresented = false
+                    session.findMatches = []
+                    session.findStatus = nil
                 }
+            )
+        }
+        if session.isCompletionPresented {
+            CompletionOverlayView(
+                items: session.completions,
+                theme: session.theme,
+                onSelect: { session.onInsertCompletion($0) },
+                onDismiss: {
+                    session.isCompletionPresented = false
+                    session.completions = []
+                }
+            )
+        }
+        if let hover = session.diagnosticHover {
+            diagnosticTooltip(hover)
+        } else if let hover = session.hoverText {
+            bottomOverlay(text: hover) {
+                session.hoverText = nil
             }
+        }
+    }
 
-            if session.isAIDisclosurePresented, let pending = session.aiPendingAction {
-                ContextDisclosureView(
-                    disclosure: pending.disclosure,
-                    actionTitle: pending.title,
-                    theme: session.theme,
-                    onConfirm: { session.onConfirmAIDisclosure() },
-                    onCancel: {
-                        session.isAIDisclosurePresented = false
-                        session.aiPendingAction = nil
-                    }
-                )
-            }
-
-            if session.isAIResultPresented, let result = session.aiResult {
-                AIResultOverlayView(
-                    title: result.title,
-                    text: result.text,
-                    proposedEdit: result.proposedEdit,
-                    originalText: result.originalText,
-                    theme: session.theme,
-                    onApply: result.proposedEdit == nil ? nil : { session.onApplyAIEdit() },
-                    onDismiss: {
-                        session.isAIResultPresented = false
-                        session.aiResult = nil
-                    }
-                )
-            }
-
-            if session.isAgentPlanPresented, let plan = session.agentPlan {
-                AgentPlanOverlayView(
-                    plan: plan,
-                    theme: session.theme,
-                    onRun: { session.onConfirmAgentPlan() },
-                    onApply: plan.proposedEdit == nil ? nil : { session.onApplyAgentEdit() },
-                    onDismiss: {
-                        session.isAgentPlanPresented = false
-                        session.agentPlan = nil
-                    }
-                )
-            }
+    @ViewBuilder
+    private var aiOverlays: some View {
+        if session.isAIDisclosurePresented, let pending = session.aiPendingAction {
+            ContextDisclosureView(
+                disclosure: pending.disclosure,
+                actionTitle: pending.title,
+                theme: session.theme,
+                onConfirm: { session.onConfirmAIDisclosure() },
+                onCancel: {
+                    session.isAIDisclosurePresented = false
+                    session.aiPendingAction = nil
+                }
+            )
         }
-        .frame(minWidth: 480, minHeight: 320)
-        .onDrop(of: [UTType.fileURL], isTargeted: nil, perform: handleDrop)
-        .onReceive(NotificationCenter.default.publisher(for: .nibToggleCommandPalette)) { _ in
-            session.dismissTransientOverlays()
-            session.isPalettePresented.toggle()
+        if session.isAIResultPresented, let result = session.aiResult {
+            AIResultOverlayView(
+                title: result.title,
+                text: result.text,
+                proposedEdit: result.proposedEdit,
+                originalText: result.originalText,
+                theme: session.theme,
+                onApply: result.proposedEdit == nil ? nil : { session.onApplyAIEdit() },
+                onDismiss: {
+                    session.isAIResultPresented = false
+                    session.aiResult = nil
+                }
+            )
         }
-        .onReceive(NotificationCenter.default.publisher(for: .nibGoToLine)) { _ in
-            session.dismissTransientOverlays()
-            session.isGoToLinePresented = true
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .nibFind)) { _ in
-            session.dismissTransientOverlays()
-            session.isFindPresented = true
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .nibComplete)) { _ in
-            session.dismissTransientOverlays()
-            session.onRequestCompletions()
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .nibHover)) { _ in
-            session.isCompletionPresented = false
-            session.onRequestHover()
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .nibExplainSelection)) { _ in
-            session.onAIAction(.explain)
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .nibEditSelection)) { _ in
-            session.onAIAction(.edit)
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .nibDocumentSelection)) { _ in
-            session.onAIAction(.document)
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .nibFixDiagnostic)) { _ in
-            session.onAIAction(.fixDiagnostic)
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .nibAskAboutFile)) { _ in
-            session.onAIAction(.askAboutFile)
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .nibGenerateSelection)) { _ in
-            session.onAIAction(.generate)
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .nibInlineSuggest)) { _ in
-            session.onRequestInlineSuggestion()
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .nibRunAgent)) { _ in
-            session.onRunAgentPlan()
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .nibAppearanceDidChange)) { _ in
-            session.theme = resolveTheme()
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .nibEditorSettingsDidChange)) { _ in
-            session.settings = resolveSettings()
-            session.theme = resolveTheme()
-        }
-        .onAppear {
-            session.theme = resolveTheme()
-            session.settings = resolveSettings()
+        if session.isAgentPlanPresented, let plan = session.agentPlan {
+            AgentPlanOverlayView(
+                plan: plan,
+                theme: session.theme,
+                onRun: { session.onConfirmAgentPlan() },
+                onApply: plan.proposedEdit == nil ? nil : { session.onApplyAgentEdit() },
+                onDismiss: {
+                    session.isAgentPlanPresented = false
+                    session.agentPlan = nil
+                }
+            )
         }
     }
 
@@ -339,5 +302,84 @@ public struct EditorShellView: View {
             }
         }
         return claimed
+    }
+}
+
+private struct EditorShellNotifications: ViewModifier {
+    @ObservedObject var session: EditorSession
+    let resolveTheme: () -> Theme
+    let resolveSettings: () -> EditorSettings
+
+    func body(content: Content) -> some View {
+        content
+            .modifier(EditorShellCoreNotifications(session: session))
+            .modifier(EditorShellAINotifications(session: session))
+            .onReceive(NotificationCenter.default.publisher(for: .nibAppearanceDidChange)) { _ in
+                session.theme = resolveTheme()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .nibEditorSettingsDidChange)) { _ in
+                session.settings = resolveSettings()
+                session.theme = resolveTheme()
+            }
+    }
+}
+
+private struct EditorShellCoreNotifications: ViewModifier {
+    @ObservedObject var session: EditorSession
+
+    func body(content: Content) -> some View {
+        content
+            .onReceive(NotificationCenter.default.publisher(for: .nibToggleCommandPalette)) { _ in
+                session.dismissTransientOverlays()
+                session.isPalettePresented.toggle()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .nibGoToLine)) { _ in
+                session.dismissTransientOverlays()
+                session.isGoToLinePresented = true
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .nibFind)) { _ in
+                session.dismissTransientOverlays()
+                session.isFindPresented = true
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .nibComplete)) { _ in
+                session.dismissTransientOverlays()
+                session.onRequestCompletions()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .nibHover)) { _ in
+                session.isCompletionPresented = false
+                session.onRequestHover()
+            }
+    }
+}
+
+private struct EditorShellAINotifications: ViewModifier {
+    @ObservedObject var session: EditorSession
+
+    func body(content: Content) -> some View {
+        content
+            .onReceive(NotificationCenter.default.publisher(for: .nibExplainSelection)) { _ in
+                session.onAIAction(.explain)
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .nibEditSelection)) { _ in
+                session.onAIAction(.edit)
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .nibDocumentSelection)) { _ in
+                session.onAIAction(.document)
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .nibFixDiagnostic)) { _ in
+                session.onAIAction(.fixDiagnostic)
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .nibAskAboutFile)) { _ in
+                session.onAIAction(.askAboutFile)
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .nibGenerateSelection)) { _ in
+                session.onAIAction(.generate)
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .nibInlineSuggest)) { _ in
+                session.onRequestInlineSuggestion()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .nibRunAgent)) { _ in
+                session.onRunAgentPlan()
+            }
     }
 }
