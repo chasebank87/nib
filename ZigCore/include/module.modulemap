@@ -1,0 +1,4 @@
+module CNibCore {
+    umbrella header "nib_core.h"
+    export *
+}

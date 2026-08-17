@@ -1,0 +1,27 @@
+import Foundation
+
+public extension Notification.Name {
+    static let nibToggleCommandPalette = Notification.Name("nib.toggleCommandPalette")
+    static let nibAppearanceDidChange = Notification.Name("nib.appearanceDidChange")
+    static let nibEditorSettingsDidChange = Notification.Name("nib.editorSettingsDidChange")
+    static let nibGoToLine = Notification.Name("nib.goToLine")
+    static let nibFind = Notification.Name("nib.find")
+    static let nibComplete = Notification.Name("nib.complete")
+    static let nibHover = Notification.Name("nib.hover")
+    static let nibGoToDefinition = Notification.Name("nib.goToDefinition")
+    static let nibFindReferences = Notification.Name("nib.findReferences")
+    static let nibFormatDocument = Notification.Name("nib.formatDocument")
+    static let nibRenameSymbol = Notification.Name("nib.renameSymbol")
+    static let nibExplainSelection = Notification.Name("nib.explainSelection")
+    static let nibEditSelection = Notification.Name("nib.editSelection")
+    static let nibDocumentSelection = Notification.Name("nib.documentSelection")
+    static let nibFixDiagnostic = Notification.Name("nib.fixDiagnostic")
+    static let nibAskAboutFile = Notification.Name("nib.askAboutFile")
+    static let nibGenerateSelection = Notification.Name("nib.generateSelection")
+    static let nibInlineSuggest = Notification.Name("nib.inlineSuggest")
+    static let nibRunAgent = Notification.Name("nib.runAgent")
+    static let nibMarkdownPreview = Notification.Name("nib.markdownPreview")
+    static let nibGitStatus = Notification.Name("nib.gitStatus")
+    static let nibShareFile = Notification.Name("nib.shareFile")
+    static let nibRunApprovedCommand = Notification.Name("nib.runApprovedCommand")
+}

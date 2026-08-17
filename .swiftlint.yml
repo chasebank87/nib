@@ -1,0 +1,33 @@
+included:
+  - App
+  - UI
+  - Domain
+  - Services
+  - CoreBridge
+  - Tests
+excluded:
+  - .build
+  - .derivedData
+  - .swiftpm
+  - ZigCore
+disabled_rules:
+  - todo
+  - trailing_comma
+opt_in_rules:
+  - empty_count
+  - implicit_return
+  - modifier_order
+  - sorted_first_last
+line_length:
+  warning: 140
+  error: 200
+  ignores_comments: true
+  ignores_urls: true
+identifier_name:
+  min_length: 2
+  excluded:
+    - id
+    - ok
+    - x
+    - y
+reporter: xcode

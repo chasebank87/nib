@@ -1,0 +1,40 @@
+public enum ThemeToken: String, CaseIterable, Codable, Sendable {
+    case editorBackground = "editor.background"
+    case editorForeground = "editor.foreground"
+    case gutterBackground = "gutter.background"
+    case gutterForeground = "gutter.foreground"
+    case cursor = "editor.cursor"
+    case selection = "editor.selection"
+    case currentLine = "editor.currentLine"
+    case matchingBracket = "editor.matchingBracket"
+    case searchMatch = "editor.searchMatch"
+    case diffAddition = "diff.addition"
+    case diffRemoval = "diff.removal"
+    case diffModification = "diff.modification"
+    case diagnosticError = "diagnostic.error"
+    case diagnosticWarning = "diagnostic.warning"
+    case diagnosticInfo = "diagnostic.info"
+    case diagnosticHint = "diagnostic.hint"
+    case aiSuggestion = "ai.suggestion"
+    case overlayBackground = "overlay.background"
+    case overlayForeground = "overlay.foreground"
+    case overlayBorder = "overlay.border"
+    case paletteBackground = "palette.background"
+    case paletteForeground = "palette.foreground"
+    case paletteSelection = "palette.selection"
+    case syntaxComment = "syntax.comment"
+    case syntaxKeyword = "syntax.keyword"
+    case syntaxString = "syntax.string"
+    case syntaxNumber = "syntax.number"
+    case syntaxFunction = "syntax.function"
+    case syntaxType = "syntax.type"
+    case syntaxVariable = "syntax.variable"
+    case syntaxPunctuation = "syntax.punctuation"
+    case markdownHeading = "markup.heading"
+    case markdownLink = "markup.link"
+}
+
+public enum ThemeAppearance: String, Codable, Sendable {
+    case light
+    case dark
+}
