@@ -65,7 +65,7 @@ Phases are capability slices, not calendar estimates. Each phase should leave `m
 
 **Goal.** Help on the selection without an agent.
 
-- Mock provider + one HTTP adapter behind `AIProvider` — **done** (`MockAIProvider`, `HTTPOpenAICompatibleProvider`, `RoutedAIProvider`)
+- Mock provider + one HTTP adapter behind `AIProvider` — **done** (`MockAIProvider`, OpenAI / OpenRouter / LM Studio / Ollama via `HTTPOpenAICompatibleProvider` + `RoutedAIProvider`)
 - Keychain-backed `SecretStoring` — **done**
 - Context disclosure sheet — **done**
 - Inline ghost text: accept, dismiss, partial accept if feasible — **done** (Tab / Esc / ⌥Tab word; idle debounce)
@@ -80,7 +80,7 @@ Phases are capability slices, not calendar estimates. Each phase should leave `m
 
 - Orchestrator with visible plan, tool calls, and progress — **done** (`AgentOrchestrator` + plan overlay)
 - `ToolPermission` grants and prompts — **done** (controller used by AI + agent steps)
-- Tools: read file/selection, optional nearby context, granted workspace search, diagnostics, apply patch, approved command, Git status/diff — **partial** (read selection/diagnostics, complete, apply patch; workspace search / shell / Git follow)
+- Tools: read file/selection, optional nearby context, granted workspace search, diagnostics, apply patch, approved command, Git status/diff — **partial** (read selection/diagnostics, Git status, workspace filename search, complete, apply patch; approved shell follows)
 - Compact diff review overlay — **done** (line-oriented `TextDiff` in AI result overlay)
 - No autonomous loops that write or execute without confirmation — **done** for current tools
 
@@ -92,8 +92,8 @@ Phases are capability slices, not calendar estimates. Each phase should leave `m
 
 - Accessibility audit (VoiceOver on editor, palette, overlays)
 - Performance: open/scroll/search on large files; Instruments pass
-- Markdown preview as a temporary mode/overlay
-- Git-aware modified indicator; blame/history still optional
+- Markdown preview as a temporary mode/overlay — **partial** (`⌥⌘M` overlay)
+- Git-aware modified indicator; blame/history still optional — **partial** (palette Git Status)
 - Quick Look, Share Sheet
 - Optional command-line launcher
 - Notarization / Hardened Runtime

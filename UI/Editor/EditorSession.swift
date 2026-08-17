@@ -18,6 +18,7 @@ public final class EditorSession: ObservableObject {
     @Published public var isAIDisclosurePresented: Bool
     @Published public var isAIResultPresented: Bool
     @Published public var isAgentPlanPresented: Bool
+    @Published public var isMarkdownPreviewPresented: Bool
     @Published public var caretUTF16: Int
     @Published public var selectionUTF16: Range<Int>
     @Published public var pendingCaretUTF16: Int?
@@ -63,6 +64,7 @@ public final class EditorSession: ObservableObject {
     public var onRunAgentPlan: () -> Void
     public var onConfirmAgentPlan: () -> Void
     public var onApplyAgentEdit: () -> Void
+    public var onInspectGit: () -> Void
 
     private var isApplyingFileText = false
 
@@ -93,7 +95,8 @@ public final class EditorSession: ObservableObject {
         onApplyAIEdit: @escaping () -> Void = {},
         onRunAgentPlan: @escaping () -> Void = {},
         onConfirmAgentPlan: @escaping () -> Void = {},
-        onApplyAgentEdit: @escaping () -> Void = {}
+        onApplyAgentEdit: @escaping () -> Void = {},
+        onInspectGit: @escaping () -> Void = {}
     ) {
         self.text = text
         self.isPalettePresented = isPalettePresented
@@ -103,6 +106,7 @@ public final class EditorSession: ObservableObject {
         self.isAIDisclosurePresented = false
         self.isAIResultPresented = false
         self.isAgentPlanPresented = false
+        self.isMarkdownPreviewPresented = false
         self.caretUTF16 = 0
         self.selectionUTF16 = 0..<0
         self.settings = settings
@@ -134,6 +138,7 @@ public final class EditorSession: ObservableObject {
         self.onRunAgentPlan = onRunAgentPlan
         self.onConfirmAgentPlan = onConfirmAgentPlan
         self.onApplyAgentEdit = onApplyAgentEdit
+        self.onInspectGit = onInspectGit
     }
 
     public func applyFileText(_ value: String) {
@@ -177,6 +182,7 @@ public final class EditorSession: ObservableObject {
         isAIDisclosurePresented = false
         isAIResultPresented = false
         isAgentPlanPresented = false
+        isMarkdownPreviewPresented = false
         hoverText = nil
         diagnosticHover = nil
         aiPendingAction = nil

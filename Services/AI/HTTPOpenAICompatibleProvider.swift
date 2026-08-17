@@ -18,36 +18,63 @@ public struct URLSessionHTTPClient: HTTPSessioning {
     }
 }
 
-/// OpenAI-compatible chat completions adapter. Requires a Keychain API key.
+/// OpenAI-compatible chat completions adapter (OpenAI, OpenRouter, LM Studio, Ollama, …).
 public struct HTTPOpenAICompatibleProvider: AIProvider {
-    public var id: String { "openai-compatible" }
-    public var displayName: String { "OpenAI Compatible" }
+    public var id: String
+    public var displayName: String
     public var capabilities: AICapabilities {
         AICapabilities(inlineCompletion: true, chat: true, tools: false)
     }
 
     public var baseURL: URL
     public var model: String
+    public var requiresAPIKey: Bool
+    public var extraHeaders: [String: String]
     private let secrets: SecretStoring
     private let session: any HTTPSessioning
     private let account: String
+
+    public init(
+        endpoint: AIProviderEndpoint,
+        secrets: SecretStoring,
+        session: any HTTPSessioning = URLSessionHTTPClient(),
+        account: String = KeychainSecretStore.providerAPIKeyAccount
+    ) {
+        self.id = endpoint.kind.rawValue
+        self.displayName = endpoint.kind.displayName
+        self.baseURL = endpoint.baseURL
+        self.model = endpoint.model
+        self.requiresAPIKey = endpoint.kind.requiresAPIKey
+        self.extraHeaders = endpoint.extraHeaders
+        self.secrets = secrets
+        self.session = session
+        self.account = account
+    }
 
     public init(
         secrets: SecretStoring,
         baseURL: URL = URL(string: "https://api.openai.com/v1")!,
         model: String = "gpt-4o-mini",
         session: any HTTPSessioning = URLSessionHTTPClient(),
-        account: String = KeychainSecretStore.providerAPIKeyAccount
+        account: String = KeychainSecretStore.providerAPIKeyAccount,
+        id: String = AIProviderKind.openAI.rawValue,
+        displayName: String = AIProviderKind.openAI.displayName,
+        requiresAPIKey: Bool = true,
+        extraHeaders: [String: String] = [:]
     ) {
-        self.secrets = secrets
+        self.id = id
+        self.displayName = displayName
         self.baseURL = baseURL
         self.model = model
+        self.requiresAPIKey = requiresAPIKey
+        self.extraHeaders = extraHeaders
+        self.secrets = secrets
         self.session = session
         self.account = account
     }
 
     public func complete(_ request: AIRequest) async throws -> AIResponse {
-        let key = try requireAPIKey()
+        let key = try optionalAPIKey()
         let body = ChatCompletionBody(model: model, messages: [
             .init(role: "system", content: """
             You are a coding assistant inside the nib macOS editor.
@@ -65,7 +92,7 @@ public struct HTTPOpenAICompatibleProvider: AIProvider {
     }
 
     public func inlineComplete(_ request: InlineCompletionRequest) async throws -> GhostSuggestion? {
-        let key = try requireAPIKey()
+        let key = try optionalAPIKey()
         let body = ChatCompletionBody(model: model, messages: [
             .init(
                 role: "system",
@@ -90,15 +117,18 @@ public struct HTTPOpenAICompatibleProvider: AIProvider {
         return GhostSuggestion(text: content, anchorUTF16: (request.prefix as NSString).length)
     }
 
-    private func requireAPIKey() throws -> String {
-        guard let data = try secrets.retrieve(account: account),
-              let key = String(data: data, encoding: .utf8)?
-              .trimmingCharacters(in: .whitespacesAndNewlines),
-              key.isEmpty == false
-        else {
+    private func optionalAPIKey() throws -> String? {
+        if let data = try secrets.retrieve(account: account),
+           let key = String(data: data, encoding: .utf8)?
+            .trimmingCharacters(in: .whitespacesAndNewlines),
+           key.isEmpty == false
+        {
+            return key
+        }
+        if requiresAPIKey {
             throw AIProviderError.missingAPIKey
         }
-        return key
+        return nil
     }
 
     private func userPrompt(for request: AIRequest) -> String {
@@ -118,12 +148,17 @@ public struct HTTPOpenAICompatibleProvider: AIProvider {
         return parts.joined(separator: "\n\n")
     }
 
-    private func post<Body: Encodable>(path: String, body: Body, apiKey: String) async throws -> Data {
+    private func post<Body: Encodable>(path: String, body: Body, apiKey: String?) async throws -> Data {
         let url = baseURL.appendingPathComponent(path)
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        if let apiKey {
+            request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        }
+        for (header, value) in extraHeaders {
+            request.setValue(value, forHTTPHeaderField: header)
+        }
         request.httpBody = try JSONEncoder().encode(body)
         let (data, response) = try await session.data(for: request)
         if let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) == false {

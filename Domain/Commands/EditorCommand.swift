@@ -41,6 +41,8 @@ public enum BuiltInCommandID {
     public static let generateSelection = "ai.generateSelection"
     public static let inlineSuggest = "ai.inlineSuggest"
     public static let runAgent = "ai.runAgent"
+    public static let markdownPreview = "view.markdownPreview"
+    public static let gitStatus = "git.status"
 }
 
 public enum CommandFilter {

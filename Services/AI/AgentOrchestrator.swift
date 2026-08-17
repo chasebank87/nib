@@ -10,7 +10,10 @@ public final class AgentOrchestrator {
         selection: String,
         selectionRange: Range<Int>,
         diagnostics: [Diagnostic],
-        filePath: String?
+        filePath: String?,
+        includeGit: Bool = true,
+        includeWorkspaceSearch: Bool = false,
+        searchQuery: String? = nil
     ) -> AgentPlan {
         var steps: [AgentPlanStep] = [
             AgentPlanStep(
@@ -32,6 +35,32 @@ public final class AgentOrchestrator {
                         toolName: "read_diagnostics",
                         argumentsDescription: "open-file diagnostics",
                         requiredPermission: .readDiagnostics
+                    )
+                )
+            )
+        }
+        if includeGit, filePath != nil {
+            steps.append(
+                AgentPlanStep(
+                    title: "Inspect Git status",
+                    detail: "read-only",
+                    toolCall: AgentToolCall(
+                        toolName: "git_status",
+                        argumentsDescription: filePath ?? "",
+                        requiredPermission: .inspectGit
+                    )
+                )
+            )
+        }
+        if includeWorkspaceSearch, let query = searchQuery, query.isEmpty == false {
+            steps.append(
+                AgentPlanStep(
+                    title: "Search workspace",
+                    detail: query,
+                    toolCall: AgentToolCall(
+                        toolName: "search_workspace",
+                        argumentsDescription: query,
+                        requiredPermission: .searchWorkspace
                     )
                 )
             )
@@ -78,6 +107,8 @@ public final class AgentOrchestrator {
         let diagnosticsText = diagnostics
             .map { "L\($0.line):\($0.column) \($0.severity.rawValue): \($0.message)" }
             .joined(separator: "\n")
+        var gitContext = ""
+        var searchContext = ""
 
         for index in working.steps.indices {
             working.steps[index].status = .running
@@ -99,18 +130,43 @@ public final class AgentOrchestrator {
                 case "read_diagnostics":
                     working.steps[index].detail = diagnosticsText.isEmpty ? "none" : diagnosticsText
                     working.steps[index].status = .completed
+                case "git_status":
+                    let snapshot = try GitStatusReader.snapshot(startingAt: filePath)
+                    gitContext = snapshot.summary
+                    working.steps[index].detail = String(gitContext.prefix(240))
+                    working.steps[index].status = .completed
+                case "search_workspace":
+                    let hits = try WorkspaceFileSearch.search(
+                        query: tool.argumentsDescription,
+                        startingAt: filePath
+                    )
+                    searchContext = hits.map(\.path).joined(separator: "\n")
+                    working.steps[index].detail = hits.isEmpty
+                        ? "no matches"
+                        : "\(hits.count) files"
+                    working.steps[index].status = .completed
                 case "complete":
+                    var fileText: String?
+                    if gitContext.isEmpty == false || searchContext.isEmpty == false {
+                        fileText = [
+                            gitContext.isEmpty ? nil : "Git:\n\(gitContext)",
+                            searchContext.isEmpty ? nil : "Workspace hits:\n\(searchContext)",
+                        ]
+                        .compactMap { $0 }
+                        .joined(separator: "\n\n")
+                    }
                     let disclosure = ContextDisclosure(
                         filePath: filePath,
                         selectedCharacterCount: selection.count,
                         includesDiagnostics: diagnostics.isEmpty == false,
-                        includesRepositoryContext: false,
+                        includesRepositoryContext: gitContext.isEmpty == false,
                         includesCommandOutput: false
                     )
                     let response = try await provider.complete(
                         AIRequest(
                             instruction: "Edit this selection",
                             selectedText: selection,
+                            fileText: fileText,
                             diagnosticsText: diagnosticsText.isEmpty ? nil : diagnosticsText,
                             disclosure: disclosure
                         )
@@ -120,7 +176,6 @@ public final class AgentOrchestrator {
                     working.steps[index].detail = "proposal ready"
                     working.steps[index].status = .completed
                 case "apply_patch":
-                    // Apply stays user-gated in the UI; mark ready for review.
                     working.steps[index].status = .pending
                     working.steps[index].detail = "waiting for Apply"
                 default:

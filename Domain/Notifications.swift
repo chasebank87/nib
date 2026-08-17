@@ -16,4 +16,6 @@ public extension Notification.Name {
     static let nibGenerateSelection = Notification.Name("nib.generateSelection")
     static let nibInlineSuggest = Notification.Name("nib.inlineSuggest")
     static let nibRunAgent = Notification.Name("nib.runAgent")
+    static let nibMarkdownPreview = Notification.Name("nib.markdownPreview")
+    static let nibGitStatus = Notification.Name("nib.gitStatus")
 }

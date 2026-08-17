@@ -165,6 +165,13 @@ public struct EditorShellView: View {
                 }
             )
         }
+        if session.isMarkdownPreviewPresented {
+            MarkdownPreviewOverlayView(
+                source: session.text,
+                theme: session.theme,
+                onDismiss: { session.isMarkdownPreviewPresented = false }
+            )
+        }
     }
 
     private var statusBar: some View {
@@ -380,6 +387,13 @@ private struct EditorShellAINotifications: ViewModifier {
             }
             .onReceive(NotificationCenter.default.publisher(for: .nibRunAgent)) { _ in
                 session.onRunAgentPlan()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .nibMarkdownPreview)) { _ in
+                session.dismissTransientOverlays()
+                session.isMarkdownPreviewPresented = true
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .nibGitStatus)) { _ in
+                session.onInspectGit()
             }
     }
 }

@@ -1,38 +1,52 @@
 import Foundation
 import NibDomain
 
-/// Shared flag for routing between mock and HTTP AI providers.
-public final class HTTPProviderPreference: @unchecked Sendable {
-    public var isEnabled: Bool
+/// Live routing configuration for which AI backend to use.
+public final class AIProviderRoutingState: @unchecked Sendable {
+    public var kind: AIProviderKind
+    public var model: String
+    public var baseURLString: String
 
-    public init(isEnabled: Bool = false) {
-        self.isEnabled = isEnabled
+    public init(
+        kind: AIProviderKind = .mock,
+        model: String = "",
+        baseURLString: String = ""
+    ) {
+        self.kind = kind
+        self.model = model
+        self.baseURLString = baseURLString
+    }
+
+    public func apply(_ settings: EditorSettings) {
+        kind = settings.aiProviderKind
+        model = settings.aiModel
+        baseURLString = settings.aiBaseURL
     }
 }
 
-/// Chooses Mock vs HTTP based on preference + Keychain presence.
+/// Chooses Mock vs a configured OpenAI-compatible endpoint from routing state.
 public struct RoutedAIProvider: AIProvider {
     public var id: String { active.id }
     public var displayName: String { active.displayName }
     public var capabilities: AICapabilities { active.capabilities }
 
     private let mock: AIProvider
-    private let http: AIProvider
     private let secrets: SecretStoring
-    private let preference: HTTPProviderPreference
+    private let routing: AIProviderRoutingState
+    private let session: any HTTPSessioning
     private let account: String
 
     public init(
         mock: AIProvider = MockAIProvider(),
-        http: AIProvider,
         secrets: SecretStoring,
-        preference: HTTPProviderPreference,
+        routing: AIProviderRoutingState,
+        session: any HTTPSessioning = URLSessionHTTPClient(),
         account: String = KeychainSecretStore.providerAPIKeyAccount
     ) {
         self.mock = mock
-        self.http = http
         self.secrets = secrets
-        self.preference = preference
+        self.routing = routing
+        self.session = session
         self.account = account
     }
 
@@ -45,16 +59,33 @@ public struct RoutedAIProvider: AIProvider {
     }
 
     private var active: AIProvider {
-        if preference.isEnabled, hasAPIKey {
-            return http
-        }
-        return mock
+        let kind = routing.kind
+        guard kind != .mock else { return mock }
+        let endpoint = AIProviderEndpoint.resolve(
+            kind: kind,
+            baseURLString: routing.baseURLString,
+            model: routing.model
+        )
+        return HTTPOpenAICompatibleProvider(
+            endpoint: endpoint,
+            secrets: secrets,
+            session: session,
+            account: account
+        )
+    }
+}
+
+/// Compatibility shim for older call sites/tests.
+@available(*, deprecated, renamed: "AIProviderRoutingState")
+public typealias HTTPProviderPreference = AIProviderRoutingState
+
+public extension AIProviderRoutingState {
+    var isEnabled: Bool {
+        get { kind != .mock }
+        set { kind = newValue ? (kind == .mock ? .openAI : kind) : .mock }
     }
 
-    private var hasAPIKey: Bool {
-        guard let data = try? secrets.retrieve(account: account), data.isEmpty == false else {
-            return false
-        }
-        return true
+    convenience init(isEnabled: Bool) {
+        self.init(kind: isEnabled ? .openAI : .mock)
     }
 }

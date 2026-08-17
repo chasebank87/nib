@@ -22,6 +22,33 @@ public struct EditorSettingsView: View {
 
     public var body: some View {
         Form {
+            editorSection
+            languageSection
+            themeSection
+            aiSection
+        }
+        .formStyle(.grouped)
+        .frame(width: 460, height: 720)
+        .onAppear(perform: refreshAPIKeyStatus)
+        .onChange(of: settings) { _, newValue in
+            let sanitized = newValue.sanitized()
+            if sanitized != newValue {
+                settings = sanitized
+            }
+        }
+        .onChange(of: settings.aiProviderKind) { _, kind in
+            if settings.aiModel.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                settings.aiModel = kind.defaultModel
+            }
+            if settings.aiBaseURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                settings.aiBaseURL = kind.defaultBaseURLString
+            }
+            refreshAPIKeyStatus()
+        }
+    }
+
+    private var editorSection: some View {
+        Section("Editor") {
             Picker("Font", selection: $settings.fontName) {
                 ForEach(EditorSettings.recommendedFontNames, id: \.self) { name in
                     Text(EditorSettings.displayName(forFont: name)).tag(name)
@@ -42,11 +69,19 @@ public struct EditorSettingsView: View {
             Toggle("Line numbers", isOn: $settings.showLineNumbers)
             Toggle("Highlight current line", isOn: $settings.highlightCurrentLine)
             Toggle("Indent guides", isOn: $settings.showIndentGuides)
+        }
+    }
+
+    private var languageSection: some View {
+        Section("Language server") {
             Toggle("Language server", isOn: $settings.enableLanguageServer)
             Toggle("Demo language server", isOn: $settings.enableDemoLanguageServer)
                 .disabled(settings.enableLanguageServer == false)
-            Toggle("HTTP AI provider (when key stored)", isOn: $settings.enableHTTPProvider)
-            Toggle("Inline ghost text", isOn: $settings.enableInlineGhostText)
+        }
+    }
+
+    private var themeSection: some View {
+        Section("Theme") {
             Picker("Theme", selection: Binding(
                 get: { settings.themeID ?? "" },
                 set: { settings.themeID = $0.isEmpty ? nil : $0 }
@@ -56,12 +91,34 @@ public struct EditorSettingsView: View {
                     Text(theme.name).tag(theme.id)
                 }
             }
+        }
+    }
 
-            Section("AI provider key") {
+    private var aiSection: some View {
+        Section("AI provider") {
+            Picker("Provider", selection: $settings.aiProviderKind) {
+                ForEach(AIProviderKind.allCases) { kind in
+                    Text(kind.displayName).tag(kind)
+                }
+            }
+            Text(settings.aiProviderKind.helpText)
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
+            if settings.aiProviderKind != .mock {
+                TextField("Model", text: $settings.aiModel)
+                TextField("Base URL", text: $settings.aiBaseURL)
+                    .help("Leave as default unless you use a custom host or port.")
+            }
+            Toggle("Inline ghost text", isOn: $settings.enableInlineGhostText)
+
+            if settings.aiProviderKind != .mock {
                 Text(apiKeyStatus)
                     .font(.system(size: 12))
                     .foregroundStyle(.secondary)
-                SecureField("API key", text: $apiKeyDraft)
+                SecureField(
+                    settings.aiProviderKind.requiresAPIKey ? "API key (required)" : "API key (optional)",
+                    text: $apiKeyDraft
+                )
                 HStack {
                     Button("Save Key") { saveAPIKey() }
                         .disabled(apiKeyDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
@@ -74,15 +131,6 @@ public struct EditorSettingsView: View {
                 }
             }
         }
-        .formStyle(.grouped)
-        .frame(width: 440, height: 680)
-        .onAppear(perform: refreshAPIKeyStatus)
-        .onChange(of: settings) { _, newValue in
-            let sanitized = newValue.sanitized()
-            if sanitized != newValue {
-                settings = sanitized
-            }
-        }
     }
 
     private func refreshAPIKeyStatus() {
@@ -92,7 +140,9 @@ public struct EditorSettingsView: View {
             {
                 apiKeyStatus = "Key stored (\(data.count) bytes)"
             } else {
-                apiKeyStatus = "No key stored"
+                apiKeyStatus = settings.aiProviderKind.requiresAPIKey
+                    ? "No key stored (required)"
+                    : "No key stored (optional)"
             }
         } catch {
             apiKeyStatus = "Unable to read key status"

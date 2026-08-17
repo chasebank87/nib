@@ -92,6 +92,9 @@ final class NibDocument: NSDocument {
             session.onApplyAgentEdit = { [weak self] in
                 self?.applyAgentEdit()
             }
+            session.onInspectGit = { [weak self] in
+                self?.showGitStatus()
+            }
             self.session = session
             self.registerCommands()
         }
@@ -391,6 +394,26 @@ final class NibDocument: NSDocument {
             )
         ) { [weak self] in
             self?.beginAgentPlan()
+        }
+        commands.register(
+            EditorCommand(
+                id: BuiltInCommandID.markdownPreview,
+                title: "Markdown Preview",
+                keywords: ["preview", "markdown", "md"],
+                shortcutLabel: "⌥⌘M"
+            )
+        ) { [weak self] in
+            self?.session.dismissTransientOverlays()
+            self?.session.isMarkdownPreviewPresented = true
+        }
+        commands.register(
+            EditorCommand(
+                id: BuiltInCommandID.gitStatus,
+                title: "Git Status",
+                keywords: ["git", "diff", "status"]
+            )
+        ) { [weak self] in
+            self?.showGitStatus()
         }
         for language in LanguageDescriptor.priorityLanguages + [.plainText] {
             let id = "lang.\(language.id)"
@@ -1198,9 +1221,45 @@ final class NibDocument: NSDocument {
             selection: selection,
             selectionRange: range,
             diagnostics: session.diagnostics,
-            filePath: fileURL?.path
+            filePath: fileURL?.path,
+            includeGit: fileURL != nil,
+            includeWorkspaceSearch: false
         )
         session.isAgentPlanPresented = true
+    }
+
+    @MainActor
+    private func showGitStatus() {
+        do {
+            try AppComposition.shared.toolPermissions.require(
+                .inspectGit,
+                allowPromptGrant: true
+            )
+            let snapshot = try GitStatusReader.snapshot(startingAt: fileURL?.path)
+            session.aiResult = AISessionResult(
+                title: "Git Status",
+                text: snapshot.summary.isEmpty ? "Clean working tree (or no changes)." : snapshot.summary,
+                proposedEdit: nil,
+                selectionRange: 0..<0
+            )
+            session.isAIResultPresented = true
+        } catch AIProviderError.permissionDenied {
+            session.aiResult = AISessionResult(
+                title: "Git Status",
+                text: "Permission denied: inspect Git.",
+                proposedEdit: nil,
+                selectionRange: 0..<0
+            )
+            session.isAIResultPresented = true
+        } catch {
+            session.aiResult = AISessionResult(
+                title: "Git Status",
+                text: error.localizedDescription,
+                proposedEdit: nil,
+                selectionRange: 0..<0
+            )
+            session.isAIResultPresented = true
+        }
     }
 
     @MainActor

@@ -65,15 +65,15 @@ Document-centric LSP with PATH auto-detection (Pyright, typescript-language-serv
 
 ### Phase 4 — AI selection actions
 
-Mock + optional HTTP OpenAI-compatible provider (Keychain key + Settings toggle), disclosure confirmation, Explain / Edit / Document / Generate / Fix Diagnostic / Ask About File, inline ghost text (Tab accept, Esc dismiss, ⌥Tab word), and Apply/Reject with line diff review.
+Mock + OpenAI / OpenRouter / LM Studio / Ollama (Settings provider picker, model, base URL, Keychain key), disclosure confirmation, Explain / Edit / Document / Generate / Fix Diagnostic / Ask About File, inline ghost text, and Apply/Reject with line diff review.
 
 ### Phase 5 — Agents
 
-Visible agent plan orchestrator (`⇧⌘A`), tool permission gates, read-selection / diagnostics / propose-edit / apply-patch steps, patch apply only after explicit approval. Workspace search, approved shell, and Git tools follow.
+Visible agent plan orchestrator (`⇧⌘A`), tool permission gates, read-selection / diagnostics / Git status / workspace filename search / propose-edit / apply-patch, patch apply only after explicit approval.
 
 ### Phase 6 — Release polish
 
-Accessibility audit, performance pass, Markdown preview overlay, compact Git diff, Share/Quick Look, optional CLI launcher, notarization path.
+Accessibility audit, performance pass, Markdown preview overlay (`⌥⌘M`), compact Git status, Share/Quick Look, optional CLI launcher, notarization path.
 
 ## MVP acceptance criteria
 

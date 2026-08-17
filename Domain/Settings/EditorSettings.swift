@@ -16,10 +16,26 @@ public struct EditorSettings: Equatable, Sendable, Codable {
     public var enableLanguageServer: Bool
     /// When true (and language server enabled), use the built-in FakeLSP instead of PATH servers.
     public var enableDemoLanguageServer: Bool
-    /// When true and a Keychain API key exists, route AI through the HTTP OpenAI-compatible adapter.
-    public var enableHTTPProvider: Bool
+    /// Selected AI backend. `.mock` keeps everything local.
+    public var aiProviderKind: AIProviderKind
+    /// Model id for the active HTTP provider (OpenAI / OpenRouter / LM Studio / Ollama).
+    public var aiModel: String
+    /// Optional base URL override; empty uses the provider default.
+    public var aiBaseURL: String
     /// When true, idle typing can request inline ghost suggestions from the AI provider.
     public var enableInlineGhostText: Bool
+
+    /// Legacy toggle mirrored from `aiProviderKind != .mock` for older UI/tests.
+    public var enableHTTPProvider: Bool {
+        get { aiProviderKind != .mock }
+        set {
+            if newValue {
+                if aiProviderKind == .mock { aiProviderKind = .openAI }
+            } else {
+                aiProviderKind = .mock
+            }
+        }
+    }
 
     public init(
         fontName: String = EditorSettings.systemMonospaceName,
@@ -35,8 +51,11 @@ public struct EditorSettings: Equatable, Sendable, Codable {
         themeID: String? = nil,
         enableLanguageServer: Bool = true,
         enableDemoLanguageServer: Bool = false,
-        enableHTTPProvider: Bool = false,
-        enableInlineGhostText: Bool = true
+        aiProviderKind: AIProviderKind = .mock,
+        aiModel: String = "",
+        aiBaseURL: String = "",
+        enableInlineGhostText: Bool = true,
+        enableHTTPProvider: Bool? = nil
     ) {
         self.fontName = fontName
         self.fontSize = fontSize
@@ -51,8 +70,13 @@ public struct EditorSettings: Equatable, Sendable, Codable {
         self.themeID = themeID
         self.enableLanguageServer = enableLanguageServer
         self.enableDemoLanguageServer = enableDemoLanguageServer
-        self.enableHTTPProvider = enableHTTPProvider
+        self.aiProviderKind = aiProviderKind
+        self.aiModel = aiModel
+        self.aiBaseURL = aiBaseURL
         self.enableInlineGhostText = enableInlineGhostText
+        if let enableHTTPProvider {
+            self.enableHTTPProvider = enableHTTPProvider
+        }
     }
 
     public static let `default` = EditorSettings()
@@ -65,6 +89,14 @@ public struct EditorSettings: Equatable, Sendable, Codable {
     ]
 
     public static let storageKey = "editor.settings.v1"
+
+    private enum CodingKeys: String, CodingKey {
+        case fontName, fontSize, lineHeight, tabWidth, insertSpaces, wrapLines, ligatures
+        case showLineNumbers, highlightCurrentLine, showIndentGuides, themeID
+        case enableLanguageServer, enableDemoLanguageServer
+        case aiProviderKind, aiModel, aiBaseURL, enableInlineGhostText
+        case enableHTTPProvider
+    }
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
@@ -86,10 +118,39 @@ public struct EditorSettings: Equatable, Sendable, Codable {
             ?? Self.default.enableLanguageServer
         enableDemoLanguageServer = try container.decodeIfPresent(Bool.self, forKey: .enableDemoLanguageServer)
             ?? Self.default.enableDemoLanguageServer
-        enableHTTPProvider = try container.decodeIfPresent(Bool.self, forKey: .enableHTTPProvider)
-            ?? Self.default.enableHTTPProvider
+        if let kind = try container.decodeIfPresent(AIProviderKind.self, forKey: .aiProviderKind) {
+            aiProviderKind = kind
+        } else if try container.decodeIfPresent(Bool.self, forKey: .enableHTTPProvider) == true {
+            aiProviderKind = .openAI
+        } else {
+            aiProviderKind = .mock
+        }
+        aiModel = try container.decodeIfPresent(String.self, forKey: .aiModel) ?? ""
+        aiBaseURL = try container.decodeIfPresent(String.self, forKey: .aiBaseURL) ?? ""
         enableInlineGhostText = try container.decodeIfPresent(Bool.self, forKey: .enableInlineGhostText)
             ?? Self.default.enableInlineGhostText
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(fontName, forKey: .fontName)
+        try container.encode(fontSize, forKey: .fontSize)
+        try container.encode(lineHeight, forKey: .lineHeight)
+        try container.encode(tabWidth, forKey: .tabWidth)
+        try container.encode(insertSpaces, forKey: .insertSpaces)
+        try container.encode(wrapLines, forKey: .wrapLines)
+        try container.encode(ligatures, forKey: .ligatures)
+        try container.encode(showLineNumbers, forKey: .showLineNumbers)
+        try container.encode(highlightCurrentLine, forKey: .highlightCurrentLine)
+        try container.encode(showIndentGuides, forKey: .showIndentGuides)
+        try container.encodeIfPresent(themeID, forKey: .themeID)
+        try container.encode(enableLanguageServer, forKey: .enableLanguageServer)
+        try container.encode(enableDemoLanguageServer, forKey: .enableDemoLanguageServer)
+        try container.encode(aiProviderKind, forKey: .aiProviderKind)
+        try container.encode(aiModel, forKey: .aiModel)
+        try container.encode(aiBaseURL, forKey: .aiBaseURL)
+        try container.encode(enableInlineGhostText, forKey: .enableInlineGhostText)
+        try container.encode(enableHTTPProvider, forKey: .enableHTTPProvider)
     }
 
     public func sanitized() -> EditorSettings {
@@ -102,6 +163,11 @@ public struct EditorSettings: Equatable, Sendable, Codable {
         copy.tabWidth = min(max(copy.tabWidth, 1), 16)
         if let themeID = copy.themeID, themeID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             copy.themeID = nil
+        }
+        copy.aiModel = copy.aiModel.trimmingCharacters(in: .whitespacesAndNewlines)
+        copy.aiBaseURL = copy.aiBaseURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        if copy.aiBaseURL.isEmpty == false, URL(string: copy.aiBaseURL) == nil {
+            copy.aiBaseURL = ""
         }
         return copy
     }

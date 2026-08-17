@@ -20,7 +20,7 @@ final class AppComposition: ObservableObject {
     let syntaxHighlighter: SyntaxHighlighting
     let themeCatalog: ThemeCatalog
 
-    private let httpProviderPreference: HTTPProviderPreference
+    private let aiRouting: AIProviderRoutingState
     private var settingsObservation: AnyCancellable?
 
     init(
@@ -57,19 +57,16 @@ final class AppComposition: ObservableObject {
             self.recovery = (try? FileRecoveryStore()) ?? MemoryRecoveryStore()
         }
         editorSettings = EditorSettingsController(store: settings)
-        let httpPreference = HTTPProviderPreference(
-            isEnabled: editorSettings.settings.enableHTTPProvider
-        )
-        self.httpProviderPreference = httpPreference
+        let routing = AIProviderRoutingState()
+        routing.apply(editorSettings.settings)
+        self.aiRouting = routing
         if let aiProvider {
             self.aiProvider = aiProvider
         } else {
-            let http = HTTPOpenAICompatibleProvider(secrets: secrets)
             self.aiProvider = RoutedAIProvider(
                 mock: MockAIProvider(),
-                http: http,
                 secrets: secrets,
-                preference: httpPreference
+                routing: routing
             )
         }
         let stored = settings.string(for: AppearanceController.preferenceKey)
@@ -85,7 +82,7 @@ final class AppComposition: ObservableObject {
         let initialSettings = editorSettings.settings
         settingsObservation = editorSettings.$settings
             .sink { newSettings in
-                httpPreference.isEnabled = newSettings.enableHTTPProvider
+                routing.apply(newSettings)
                 Task { @MainActor in
                     await servers.applySettings(newSettings)
                 }

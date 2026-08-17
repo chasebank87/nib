@@ -80,6 +80,13 @@ struct NibApp: App {
                     NotificationCenter.default.post(name: .nibRunAgent, object: nil)
                 }
                 .keyboardShortcut("a", modifiers: [.command, .shift])
+                Button("Markdown Preview") {
+                    NotificationCenter.default.post(name: .nibMarkdownPreview, object: nil)
+                }
+                .keyboardShortcut("m", modifiers: [.command, .option])
+                Button("Git Status") {
+                    NotificationCenter.default.post(name: .nibGitStatus, object: nil)
+                }
             }
             CommandMenu("View") {
                 Button("Command Palette") {
