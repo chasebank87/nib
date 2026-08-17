@@ -34,6 +34,9 @@ public actor LSPClient: LanguageServerClienting, DiagnosticPublishing {
                         "synchronization": ["dynamicRegistration": false],
                         "completion": ["dynamicRegistration": false],
                         "hover": ["dynamicRegistration": false],
+                        "definition": ["dynamicRegistration": false],
+                        "rename": ["dynamicRegistration": false],
+                        "formatting": ["dynamicRegistration": false],
                     ],
                 ],
                 "rootUri": NSNull(),
@@ -165,6 +168,56 @@ public actor LSPClient: LanguageServerClienting, DiagnosticPublishing {
         return nil
     }
 
+    public func definition(
+        document: LSPDocumentIdentity,
+        position: LSPPosition
+    ) async throws -> [LSPLocation] {
+        try await ensureStarted()
+        let result = try await request(
+            method: "textDocument/definition",
+            params: [
+                "textDocument": ["uri": document.uri.absoluteString],
+                "position": ["line": position.line, "character": position.character],
+            ]
+        )
+        return Self.mapLocations(result)
+    }
+
+    public func formatting(
+        document: LSPDocumentIdentity,
+        options: EditorSettings
+    ) async throws -> [TextEdit] {
+        try await ensureStarted()
+        let result = try await request(
+            method: "textDocument/formatting",
+            params: [
+                "textDocument": ["uri": document.uri.absoluteString],
+                "options": [
+                    "tabSize": options.tabWidth,
+                    "insertSpaces": options.insertSpaces,
+                ],
+            ]
+        )
+        return Self.mapTextEdits(result)
+    }
+
+    public func rename(
+        document: LSPDocumentIdentity,
+        position: LSPPosition,
+        newName: String
+    ) async throws -> [TextEdit] {
+        try await ensureStarted()
+        let result = try await request(
+            method: "textDocument/rename",
+            params: [
+                "textDocument": ["uri": document.uri.absoluteString],
+                "position": ["line": position.line, "character": position.character],
+                "newName": newName,
+            ]
+        )
+        return Self.mapRenameEdits(result, documentURI: document.uri.absoluteString)
+    }
+
     private func ensureStarted() async throws {
         if started == false {
             try await start()
@@ -249,6 +302,103 @@ public actor LSPClient: LanguageServerClienting, DiagnosticPublishing {
                 lspEnd: LSPPosition(line: endLine, character: endCharacter)
             )
         }
+    }
+
+    private static func mapLocations(_ result: [String: Any]) -> [LSPLocation] {
+        if let uri = result["uri"] as? String {
+            return [mapLocation(uri: uri, range: result["range"] as? [String: Any])].compactMap { $0 }
+        }
+        if let targetURI = result["targetUri"] as? String {
+            return [
+                mapLocation(
+                    uri: targetURI,
+                    range: (result["targetSelectionRange"] as? [String: Any])
+                        ?? (result["targetRange"] as? [String: Any])
+                ),
+            ].compactMap { $0 }
+        }
+        let items = result["items"] as? [Any] ?? []
+        return items.compactMap { item in
+            guard let dict = item as? [String: Any] else { return nil }
+            if let uri = dict["uri"] as? String {
+                return mapLocation(uri: uri, range: dict["range"] as? [String: Any])
+            }
+            if let targetURI = dict["targetUri"] as? String {
+                return mapLocation(
+                    uri: targetURI,
+                    range: (dict["targetSelectionRange"] as? [String: Any])
+                        ?? (dict["targetRange"] as? [String: Any])
+                )
+            }
+            return nil
+        }
+    }
+
+    private static func mapLocation(uri: String, range: [String: Any]?) -> LSPLocation? {
+        guard let url = URL(string: uri) else { return nil }
+        let start = range?["start"] as? [String: Any]
+        let end = range?["end"] as? [String: Any]
+        return LSPLocation(
+            uri: url,
+            start: LSPPosition(
+                line: start?["line"] as? Int ?? 0,
+                character: start?["character"] as? Int ?? 0
+            ),
+            end: LSPPosition(
+                line: end?["line"] as? Int ?? 0,
+                character: end?["character"] as? Int ?? 0
+            )
+        )
+    }
+
+    private static func mapTextEdits(_ result: [String: Any]) -> [TextEdit] {
+        let items: [[String: Any]]
+        if let list = result["items"] as? [[String: Any]] {
+            items = list
+        } else if result["range"] != nil {
+            items = [result]
+        } else {
+            items = []
+        }
+        return items.compactMap(mapTextEdit)
+    }
+
+    private static func mapRenameEdits(_ result: [String: Any], documentURI: String) -> [TextEdit] {
+        if let changes = result["changes"] as? [String: Any],
+           let edits = changes[documentURI] as? [[String: Any]]
+        {
+            return edits.compactMap(mapTextEdit)
+        }
+        if let documentChanges = result["documentChanges"] as? [[String: Any]] {
+            var edits: [TextEdit] = []
+            for change in documentChanges {
+                let uri = (change["textDocument"] as? [String: Any])?["uri"] as? String
+                guard uri == nil || uri == documentURI else { continue }
+                let list = change["edits"] as? [[String: Any]] ?? []
+                edits.append(contentsOf: list.compactMap(mapTextEdit))
+            }
+            return edits
+        }
+        return mapTextEdits(result)
+    }
+
+    private static func mapTextEdit(_ item: [String: Any]) -> TextEdit? {
+        guard let range = item["range"] as? [String: Any],
+              let newText = item["newText"] as? String
+        else { return nil }
+        let start = range["start"] as? [String: Any]
+        let end = range["end"] as? [String: Any]
+        return TextEdit(
+            start: LSPPosition(
+                line: start?["line"] as? Int ?? 0,
+                character: start?["character"] as? Int ?? 0
+            ),
+            end: LSPPosition(
+                line: end?["line"] as? Int ?? 0,
+                character: end?["character"] as? Int ?? 0
+            ),
+            newText: newText
+        )
     }
 
     private func request(method: String, params: [String: Any]?) async throws -> [String: Any] {

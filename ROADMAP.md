@@ -54,8 +54,8 @@ Phases are capability slices, not calendar estimates. Each phase should leave `m
 
 - Server install/config UI (palette/settings), stdio client, document lifecycle — **partial** (PATH auto-detect + demo FakeLSP + settings toggles; dedicated install UI follows)
 - Incremental sync, cancellation, sensible timeouts — **done** (full-document sync + cancel; timeouts follow)
-- Diagnostics, completion, hover, definition/declaration, references, rename — **partial** (underlined diagnostics + hover tooltip, completion overlay, hover; navigation/rename follow)
-- Code actions, document symbols, formatting (on demand and optional on save)
+- Diagnostics, completion, hover, definition/declaration, references, rename — **partial** (underlined diagnostics + hover, completion, go to definition, rename; references follow)
+- Code actions, document symbols, formatting (on demand and optional on save) — **partial** (on-demand Format Document; on-save optional follows)
 - Semantic tokens when the server provides them
 - Error states: server missing, crashed, or slow — editor stays usable — **done** (missing server shows status; editing continues)
 
@@ -80,7 +80,7 @@ Phases are capability slices, not calendar estimates. Each phase should leave `m
 
 - Orchestrator with visible plan, tool calls, and progress — **done** (`AgentOrchestrator` + plan overlay)
 - `ToolPermission` grants and prompts — **done** (controller used by AI + agent steps)
-- Tools: read file/selection, optional nearby context, granted workspace search, diagnostics, apply patch, approved command, Git status/diff — **partial** (read selection/diagnostics, Git status, workspace filename search, complete, apply patch; approved shell follows)
+- Tools: read file/selection, optional nearby context, granted workspace search, diagnostics, apply patch, approved command, Git status/diff — **done** for current set (read selection/diagnostics, Git status, workspace filename search, complete, apply patch, approved shell command)
 - Compact diff review overlay — **done** (line-oriented `TextDiff` in AI result overlay)
 - No autonomous loops that write or execute without confirmation — **done** for current tools
 

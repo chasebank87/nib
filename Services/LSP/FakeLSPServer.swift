@@ -67,6 +67,9 @@ public actor FakeLSPServer {
                             "textDocumentSync": 1,
                             "completionProvider": ["triggerCharacters": ["."]],
                             "hoverProvider": true,
+                            "definitionProvider": true,
+                            "documentFormattingProvider": true,
+                            "renameProvider": true,
                         ],
                         "serverInfo": ["name": "nib-fake-lsp", "version": "0.1.0"],
                     ]
@@ -114,6 +117,52 @@ public actor FakeLSPServer {
                     id: id,
                     result: [
                         "contents": ["kind": "markdown", "value": hoverText],
+                    ]
+                )
+            case "textDocument/definition":
+                let uri = ((params["textDocument"] as? [String: Any])?["uri"] as? String)
+                    ?? "file:///tmp/demo.py"
+                try await reply(
+                    id: id,
+                    result: [
+                        "uri": uri,
+                        "range": [
+                            "start": ["line": 0, "character": 0],
+                            "end": ["line": 0, "character": 5],
+                        ],
+                    ]
+                )
+            case "textDocument/formatting":
+                try await reply(
+                    id: id,
+                    result: [
+                        [
+                            "range": [
+                                "start": ["line": 0, "character": 0],
+                                "end": ["line": 0, "character": 0],
+                            ],
+                            "newText": "// formatted\n",
+                        ],
+                    ]
+                )
+            case "textDocument/rename":
+                let uri = ((params["textDocument"] as? [String: Any])?["uri"] as? String)
+                    ?? "file:///tmp/demo.py"
+                let newName = params["newName"] as? String ?? "renamed"
+                try await reply(
+                    id: id,
+                    result: [
+                        "changes": [
+                            uri: [
+                                [
+                                    "range": [
+                                        "start": ["line": 0, "character": 0],
+                                        "end": ["line": 0, "character": 5],
+                                    ],
+                                    "newText": newName,
+                                ],
+                            ],
+                        ],
                     ]
                 )
             case "$/cancelRequest":

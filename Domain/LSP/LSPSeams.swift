@@ -145,6 +145,30 @@ public struct HoverInfo: Equatable, Sendable {
     }
 }
 
+public struct LSPLocation: Equatable, Sendable {
+    public var uri: URL
+    public var start: LSPPosition
+    public var end: LSPPosition
+
+    public init(uri: URL, start: LSPPosition, end: LSPPosition) {
+        self.uri = uri
+        self.start = start
+        self.end = end
+    }
+}
+
+public struct TextEdit: Equatable, Sendable {
+    public var start: LSPPosition
+    public var end: LSPPosition
+    public var newText: String
+
+    public init(start: LSPPosition, end: LSPPosition, newText: String) {
+        self.start = start
+        self.end = end
+        self.newText = newText
+    }
+}
+
 /// JSON-RPC stdio (or pipe) language server client with incremental sync.
 public protocol LanguageServerClienting: Sendable {
     func start() async throws
@@ -161,6 +185,19 @@ public protocol LanguageServerClienting: Sendable {
         document: LSPDocumentIdentity,
         position: LSPPosition
     ) async throws -> HoverInfo?
+    func definition(
+        document: LSPDocumentIdentity,
+        position: LSPPosition
+    ) async throws -> [LSPLocation]
+    func formatting(
+        document: LSPDocumentIdentity,
+        options: EditorSettings
+    ) async throws -> [TextEdit]
+    func rename(
+        document: LSPDocumentIdentity,
+        position: LSPPosition,
+        newName: String
+    ) async throws -> [TextEdit]
 }
 
 public protocol LanguageServerInstalling: Sendable {

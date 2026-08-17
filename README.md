@@ -39,16 +39,17 @@ See [PRODUCT.md](PRODUCT.md) for vision, non-goals, and MVP acceptance criteria.
 - Demo language server (FakeLSP): document sync, diagnostics, completions (`⌃Space`), hover
 - Real LSP over stdio with PATH auto-detection (Pyright, TypeScript LS, SourceKit, ZLS, …)
 - Diagnostics underlined in-editor with hover details; completions (`⌃Space`); hover (`⌥⌘.`)
+- Go to Definition (`⌘]`), Format Document, Rename Symbol
 - Mock AI with disclosure sheet: Explain (`⇧⌘E`), Edit (`⇧⌘R`), Document / Generate / Fix Diagnostic / Ask About File
 - Inline ghost text (`⌥]` or idle): Tab accept, Esc dismiss, ⌥Tab word
 - AI providers: Mock, OpenAI, OpenRouter, LM Studio, Ollama (Settings picker + Keychain key)
 - Agent plan on selection (`⇧⌘A`) with permission-gated tools and Apply
-- Git Status (palette) and workspace filename search tools
+- Git Status, Run Approved Command…, workspace filename search tools
 - Markdown preview overlay (`⌥⌘M`)
 - Keychain API key storage in Settings; proposed edits with line-diff Apply/Reject
 - Zig core linked through a C ABI, with a proof-of-integration API and tests
 
-**Designed from the start, implemented in later phases:** approved shell tool, Zig buffer+search, a11y/performance polish, notarization. The full map is in [ROADMAP.md](ROADMAP.md) and [BACKLOG.md](BACKLOG.md).
+**Designed from the start, implemented in later phases:** LSP references, Zig buffer+search, a11y/performance polish, notarization. The full map is in [ROADMAP.md](ROADMAP.md) and [BACKLOG.md](BACKLOG.md).
 
 ## Architecture overview
 

@@ -8,6 +8,9 @@ public extension Notification.Name {
     static let nibFind = Notification.Name("nib.find")
     static let nibComplete = Notification.Name("nib.complete")
     static let nibHover = Notification.Name("nib.hover")
+    static let nibGoToDefinition = Notification.Name("nib.goToDefinition")
+    static let nibFormatDocument = Notification.Name("nib.formatDocument")
+    static let nibRenameSymbol = Notification.Name("nib.renameSymbol")
     static let nibExplainSelection = Notification.Name("nib.explainSelection")
     static let nibEditSelection = Notification.Name("nib.editSelection")
     static let nibDocumentSelection = Notification.Name("nib.documentSelection")
@@ -18,4 +21,5 @@ public extension Notification.Name {
     static let nibRunAgent = Notification.Name("nib.runAgent")
     static let nibMarkdownPreview = Notification.Name("nib.markdownPreview")
     static let nibGitStatus = Notification.Name("nib.gitStatus")
+    static let nibRunApprovedCommand = Notification.Name("nib.runApprovedCommand")
 }

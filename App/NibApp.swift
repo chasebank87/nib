@@ -52,6 +52,16 @@ struct NibApp: App {
                     NotificationCenter.default.post(name: .nibHover, object: nil)
                 }
                 .keyboardShortcut(".", modifiers: [.command, .option])
+                Button("Go to Definition") {
+                    NotificationCenter.default.post(name: .nibGoToDefinition, object: nil)
+                }
+                .keyboardShortcut("]", modifiers: .command)
+                Button("Format Document") {
+                    NotificationCenter.default.post(name: .nibFormatDocument, object: nil)
+                }
+                Button("Rename Symbol") {
+                    NotificationCenter.default.post(name: .nibRenameSymbol, object: nil)
+                }
                 Button("Explain Selection") {
                     NotificationCenter.default.post(name: .nibExplainSelection, object: nil)
                 }
@@ -86,6 +96,9 @@ struct NibApp: App {
                 .keyboardShortcut("m", modifiers: [.command, .option])
                 Button("Git Status") {
                     NotificationCenter.default.post(name: .nibGitStatus, object: nil)
+                }
+                Button("Run Approved Command…") {
+                    NotificationCenter.default.post(name: .nibRunApprovedCommand, object: nil)
                 }
             }
             CommandMenu("View") {

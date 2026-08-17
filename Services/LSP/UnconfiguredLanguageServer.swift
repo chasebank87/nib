@@ -38,6 +38,31 @@ public struct UnconfiguredLanguageServer: LanguageServerClienting, LanguageServe
         return nil
     }
 
+    public func definition(
+        document: LSPDocumentIdentity,
+        position: LSPPosition
+    ) async throws -> [LSPLocation] {
+        _ = (document, position)
+        return []
+    }
+
+    public func formatting(
+        document: LSPDocumentIdentity,
+        options: EditorSettings
+    ) async throws -> [TextEdit] {
+        _ = (document, options)
+        return []
+    }
+
+    public func rename(
+        document: LSPDocumentIdentity,
+        position: LSPPosition,
+        newName: String
+    ) async throws -> [TextEdit] {
+        _ = (document, position, newName)
+        return []
+    }
+
     public func installedServer(for languageID: String) -> URL? {
         _ = languageID
         return nil

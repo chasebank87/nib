@@ -112,6 +112,25 @@ struct FakeLSPIntegrationTests {
         )
         #expect(hover?.contents == "demo hover")
 
+        let locations = try await pair.client.definition(
+            document: identity,
+            position: LSPPosition(line: 0, character: 0)
+        )
+        #expect(locations.first?.uri.absoluteString == uri.absoluteString)
+
+        let edits = try await pair.client.formatting(
+            document: identity,
+            options: .default
+        )
+        #expect(edits.first?.newText.contains("formatted") == true)
+
+        let renamed = try await pair.client.rename(
+            document: identity,
+            position: LSPPosition(line: 0, character: 0),
+            newName: "hello"
+        )
+        #expect(renamed.first?.newText == "hello")
+
         await pair.client.stop()
         await pair.server.stop()
     }
@@ -123,5 +142,39 @@ struct LSPPositionTests {
         let position = LineColumnParser.lspPosition(utf16Offset: 4, in: text)
         #expect(position.line == 1)
         #expect(position.character == 1)
+    }
+}
+
+struct TextEditApplierTests {
+    @Test func appliesEditsBottomUp() throws {
+        let text = "alpha beta"
+        let edits = [
+            TextEdit(
+                start: LSPPosition(line: 0, character: 6),
+                end: LSPPosition(line: 0, character: 10),
+                newText: "gamma"
+            ),
+            TextEdit(
+                start: LSPPosition(line: 0, character: 0),
+                end: LSPPosition(line: 0, character: 5),
+                newText: "ALPHA"
+            ),
+        ]
+        let updated = try TextEditApplier.apply(edits, to: text)
+        #expect(updated == "ALPHA gamma")
+    }
+}
+
+struct ApprovedCommandRunnerTests {
+    @Test func runsEcho() throws {
+        let result = try ApprovedCommandRunner.run("echo nib-ok", workingDirectory: nil)
+        #expect(result.exitCode == 0)
+        #expect(result.stdout.contains("nib-ok"))
+    }
+
+    @Test func rejectsEmpty() {
+        #expect(throws: ApprovedCommandError.emptyCommand) {
+            _ = try ApprovedCommandRunner.run("   ", workingDirectory: nil)
+        }
     }
 }

@@ -61,7 +61,7 @@ Shipped themes + user theme JSON from Application Support, Tree-sitter highlight
 
 ### Phase 3 — LSP and IDE capabilities
 
-Document-centric LSP with PATH auto-detection (Pyright, typescript-language-server, SourceKit, ZLS, …), optional demo FakeLSP, underlined diagnostics with hover, completion, and hover info. Real server install UI, definition/references/rename, and formatting follow. Useful with language server off.
+Document-centric LSP with PATH auto-detection (Pyright, typescript-language-server, SourceKit, ZLS, …), optional demo FakeLSP, underlined diagnostics with hover, completion, hover, go to definition, format document, and rename. Real server install UI and references follow. Useful with language server off.
 
 ### Phase 4 — AI selection actions
 
@@ -69,7 +69,7 @@ Mock + OpenAI / OpenRouter / LM Studio / Ollama (Settings provider picker, model
 
 ### Phase 5 — Agents
 
-Visible agent plan orchestrator (`⇧⌘A`), tool permission gates, read-selection / diagnostics / Git status / workspace filename search / propose-edit / apply-patch, patch apply only after explicit approval.
+Visible agent plan orchestrator (`⇧⌘A`), tool permission gates, read-selection / diagnostics / Git status / workspace filename search / propose-edit / apply-patch, approved shell command overlay, patch apply only after explicit approval.
 
 ### Phase 6 — Release polish
 

@@ -95,6 +95,24 @@ final class NibDocument: NSDocument {
             session.onInspectGit = { [weak self] in
                 self?.showGitStatus()
             }
+            session.onGoToDefinition = { [weak self] in
+                self?.goToDefinition()
+            }
+            session.onFormatDocument = { [weak self] in
+                self?.formatDocument()
+            }
+            session.onBeginRename = { [weak self] in
+                self?.beginRename()
+            }
+            session.onConfirmRename = { [weak self] name in
+                self?.confirmRename(name)
+            }
+            session.onBeginApprovedCommand = { [weak self] in
+                self?.beginApprovedCommand()
+            }
+            session.onConfirmApprovedCommand = { [weak self] command in
+                self?.confirmApprovedCommand(command)
+            }
             self.session = session
             self.registerCommands()
         }
@@ -321,6 +339,34 @@ final class NibDocument: NSDocument {
         }
         commands.register(
             EditorCommand(
+                id: BuiltInCommandID.goToDefinition,
+                title: "Go to Definition",
+                keywords: ["lsp", "jump", "definition"],
+                shortcutLabel: "⌘]"
+            )
+        ) { [weak self] in
+            self?.goToDefinition()
+        }
+        commands.register(
+            EditorCommand(
+                id: BuiltInCommandID.formatDocument,
+                title: "Format Document",
+                keywords: ["lsp", "format", "prettier"]
+            )
+        ) { [weak self] in
+            self?.formatDocument()
+        }
+        commands.register(
+            EditorCommand(
+                id: BuiltInCommandID.renameSymbol,
+                title: "Rename Symbol",
+                keywords: ["lsp", "rename", "refactor"]
+            )
+        ) { [weak self] in
+            self?.beginRename()
+        }
+        commands.register(
+            EditorCommand(
                 id: BuiltInCommandID.explainSelection,
                 title: "Explain Selection",
                 keywords: ["ai", "mock", "explain"],
@@ -414,6 +460,15 @@ final class NibDocument: NSDocument {
             )
         ) { [weak self] in
             self?.showGitStatus()
+        }
+        commands.register(
+            EditorCommand(
+                id: BuiltInCommandID.runApprovedCommand,
+                title: "Run Approved Command…",
+                keywords: ["shell", "terminal", "command", "run"]
+            )
+        ) { [weak self] in
+            self?.beginApprovedCommand()
         }
         for language in LanguageDescriptor.priorityLanguages + [.plainText] {
             let id = "lang.\(language.id)"
@@ -843,6 +898,209 @@ final class NibDocument: NSDocument {
                 AppLog.lsp.error("hover failed \(error.localizedDescription, privacy: .public)")
             }
         }
+    }
+
+    @MainActor
+    private func goToDefinition() {
+        guard session.capabilities.languageServers else {
+            session.hoverText = "Language server is off."
+            return
+        }
+        let caret = session.caretUTF16
+        let position = LineColumnParser.lspPosition(utf16Offset: caret, in: session.text)
+        let currentURI = lspDocumentIdentity().uri
+        lspFeatureTask?.cancel()
+        lspFeatureTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            await self.syncLanguageServerDocument(forceReopen: false)
+            do {
+                let locations = try await AppComposition.shared.languageServer.definition(
+                    document: self.lspDocumentIdentity(),
+                    position: position
+                )
+                guard Task.isCancelled == false else { return }
+                guard let first = locations.first else {
+                    self.session.hoverText = "No definition found."
+                    return
+                }
+                if first.uri == currentURI || first.uri.absoluteString == currentURI.absoluteString {
+                    let offset = LineColumnParser.utf16Offset(
+                        lspLine: first.start.line,
+                        lspCharacter: first.start.character,
+                        in: self.session.text
+                    )
+                    self.session.pendingCaretUTF16 = offset
+                    self.session.hoverText = nil
+                } else {
+                    self.session.hoverText =
+                        "Definition is in another file:\n\(first.uri.path)\nL\(first.start.line + 1):\(first.start.character + 1)"
+                }
+            } catch {
+                guard Task.isCancelled == false else { return }
+                self.session.hoverText = error.localizedDescription
+                AppLog.lsp.error("definition failed \(error.localizedDescription, privacy: .public)")
+            }
+        }
+    }
+
+    @MainActor
+    private func formatDocument() {
+        guard session.capabilities.languageServers else {
+            session.hoverText = "Language server is off."
+            return
+        }
+        lspFeatureTask?.cancel()
+        lspFeatureTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            await self.syncLanguageServerDocument(forceReopen: false)
+            do {
+                let edits = try await AppComposition.shared.languageServer.formatting(
+                    document: self.lspDocumentIdentity(),
+                    options: self.session.settings
+                )
+                guard Task.isCancelled == false else { return }
+                guard edits.isEmpty == false else {
+                    self.session.hoverText = "Formatter returned no edits."
+                    return
+                }
+                let updated = try TextEditApplier.apply(edits, to: self.session.text)
+                self.session.applyFileText(updated)
+                self.handleTextEdit(updated)
+                self.session.hoverText = "Formatted (\(edits.count) edits)."
+            } catch {
+                guard Task.isCancelled == false else { return }
+                self.session.hoverText = error.localizedDescription
+                AppLog.lsp.error("format failed \(error.localizedDescription, privacy: .public)")
+            }
+        }
+    }
+
+    @MainActor
+    private func beginRename() {
+        session.dismissTransientOverlays()
+        let word = wordNearCaret()
+        session.renameDraft = word
+        session.isRenamePresented = true
+    }
+
+    @MainActor
+    private func confirmRename(_ newName: String) {
+        let trimmed = newName.trimmingCharacters(in: .whitespacesAndNewlines)
+        session.isRenamePresented = false
+        guard trimmed.isEmpty == false else { return }
+        guard session.capabilities.languageServers else {
+            session.hoverText = "Language server is off."
+            return
+        }
+        let caret = session.caretUTF16
+        let position = LineColumnParser.lspPosition(utf16Offset: caret, in: session.text)
+        lspFeatureTask?.cancel()
+        lspFeatureTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            await self.syncLanguageServerDocument(forceReopen: false)
+            do {
+                let edits = try await AppComposition.shared.languageServer.rename(
+                    document: self.lspDocumentIdentity(),
+                    position: position,
+                    newName: trimmed
+                )
+                guard Task.isCancelled == false else { return }
+                guard edits.isEmpty == false else {
+                    self.session.hoverText = "Rename returned no edits for this file."
+                    return
+                }
+                let updated = try TextEditApplier.apply(edits, to: self.session.text)
+                self.session.applyFileText(updated)
+                self.handleTextEdit(updated)
+                self.session.hoverText = "Renamed (\(edits.count) edits)."
+            } catch {
+                guard Task.isCancelled == false else { return }
+                self.session.hoverText = error.localizedDescription
+                AppLog.lsp.error("rename failed \(error.localizedDescription, privacy: .public)")
+            }
+        }
+    }
+
+    @MainActor
+    private func beginApprovedCommand() {
+        session.dismissTransientOverlays()
+        session.workingDirectoryHint = fileURL?.deletingLastPathComponent().path
+        if session.approvedCommandDraft.isEmpty {
+            session.approvedCommandDraft = "git status --short"
+        }
+        session.isApprovedCommandPresented = true
+    }
+
+    @MainActor
+    private func confirmApprovedCommand(_ command: String) {
+        session.isApprovedCommandPresented = false
+        do {
+            try AppComposition.shared.toolPermissions.require(
+                .runCommand,
+                allowPromptGrant: true
+            )
+            let cwd = fileURL?.deletingLastPathComponent().path
+            let result = try ApprovedCommandRunner.run(command, workingDirectory: cwd)
+            session.aiResult = AISessionResult(
+                title: "Command Result",
+                text: result.summary,
+                proposedEdit: nil,
+                selectionRange: 0..<0
+            )
+            session.isAIResultPresented = true
+        } catch AIProviderError.permissionDenied {
+            session.aiResult = AISessionResult(
+                title: "Command Result",
+                text: "Permission denied: run command.",
+                proposedEdit: nil,
+                selectionRange: 0..<0
+            )
+            session.isAIResultPresented = true
+        } catch ApprovedCommandError.timedOut {
+            session.aiResult = AISessionResult(
+                title: "Command Result",
+                text: "Command timed out.",
+                proposedEdit: nil,
+                selectionRange: 0..<0
+            )
+            session.isAIResultPresented = true
+        } catch {
+            session.aiResult = AISessionResult(
+                title: "Command Result",
+                text: error.localizedDescription,
+                proposedEdit: nil,
+                selectionRange: 0..<0
+            )
+            session.isAIResultPresented = true
+        }
+    }
+
+    @MainActor
+    private func wordNearCaret() -> String {
+        let ns = session.text as NSString
+        let caret = min(max(session.caretUTF16, 0), ns.length)
+        guard ns.length > 0 else { return "" }
+        var start = caret
+        while start > 0 {
+            let ch = ns.character(at: start - 1)
+            if Self.isIdentifierCharacter(ch) == false { break }
+            start -= 1
+        }
+        var end = caret
+        while end < ns.length {
+            let ch = ns.character(at: end)
+            if Self.isIdentifierCharacter(ch) == false { break }
+            end += 1
+        }
+        guard end > start else { return "" }
+        return ns.substring(with: NSRange(location: start, length: end - start))
+    }
+
+    private static func isIdentifierCharacter(_ utf16: unichar) -> Bool {
+        (utf16 >= 48 && utf16 <= 57) // 0-9
+            || (utf16 >= 65 && utf16 <= 90) // A-Z
+            || (utf16 >= 97 && utf16 <= 122) // a-z
+            || utf16 == 95 // _
     }
 
     @MainActor

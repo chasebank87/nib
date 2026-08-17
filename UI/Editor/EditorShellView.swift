@@ -172,6 +172,23 @@ public struct EditorShellView: View {
                 onDismiss: { session.isMarkdownPreviewPresented = false }
             )
         }
+        if session.isRenamePresented {
+            RenameSymbolOverlayView(
+                newName: $session.renameDraft,
+                theme: session.theme,
+                onRename: { session.onConfirmRename($0) },
+                onDismiss: { session.isRenamePresented = false }
+            )
+        }
+        if session.isApprovedCommandPresented {
+            ApprovedCommandOverlayView(
+                command: $session.approvedCommandDraft,
+                workingDirectory: session.workingDirectoryHint,
+                theme: session.theme,
+                onRun: { session.onConfirmApprovedCommand($0) },
+                onDismiss: { session.isApprovedCommandPresented = false }
+            )
+        }
     }
 
     private var statusBar: some View {
@@ -356,6 +373,15 @@ private struct EditorShellCoreNotifications: ViewModifier {
                 session.isCompletionPresented = false
                 session.onRequestHover()
             }
+            .onReceive(NotificationCenter.default.publisher(for: .nibGoToDefinition)) { _ in
+                session.onGoToDefinition()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .nibFormatDocument)) { _ in
+                session.onFormatDocument()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .nibRenameSymbol)) { _ in
+                session.onBeginRename()
+            }
     }
 }
 
@@ -394,6 +420,9 @@ private struct EditorShellAINotifications: ViewModifier {
             }
             .onReceive(NotificationCenter.default.publisher(for: .nibGitStatus)) { _ in
                 session.onInspectGit()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .nibRunApprovedCommand)) { _ in
+                session.onBeginApprovedCommand()
             }
     }
 }

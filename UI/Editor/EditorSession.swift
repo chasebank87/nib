@@ -19,6 +19,11 @@ public final class EditorSession: ObservableObject {
     @Published public var isAIResultPresented: Bool
     @Published public var isAgentPlanPresented: Bool
     @Published public var isMarkdownPreviewPresented: Bool
+    @Published public var isRenamePresented: Bool
+    @Published public var isApprovedCommandPresented: Bool
+    @Published public var renameDraft: String
+    @Published public var approvedCommandDraft: String
+    @Published public var workingDirectoryHint: String?
     @Published public var caretUTF16: Int
     @Published public var selectionUTF16: Range<Int>
     @Published public var pendingCaretUTF16: Int?
@@ -65,6 +70,12 @@ public final class EditorSession: ObservableObject {
     public var onConfirmAgentPlan: () -> Void
     public var onApplyAgentEdit: () -> Void
     public var onInspectGit: () -> Void
+    public var onGoToDefinition: () -> Void
+    public var onFormatDocument: () -> Void
+    public var onBeginRename: () -> Void
+    public var onConfirmRename: (String) -> Void
+    public var onBeginApprovedCommand: () -> Void
+    public var onConfirmApprovedCommand: (String) -> Void
 
     private var isApplyingFileText = false
 
@@ -96,7 +107,13 @@ public final class EditorSession: ObservableObject {
         onRunAgentPlan: @escaping () -> Void = {},
         onConfirmAgentPlan: @escaping () -> Void = {},
         onApplyAgentEdit: @escaping () -> Void = {},
-        onInspectGit: @escaping () -> Void = {}
+        onInspectGit: @escaping () -> Void = {},
+        onGoToDefinition: @escaping () -> Void = {},
+        onFormatDocument: @escaping () -> Void = {},
+        onBeginRename: @escaping () -> Void = {},
+        onConfirmRename: @escaping (String) -> Void = { _ in },
+        onBeginApprovedCommand: @escaping () -> Void = {},
+        onConfirmApprovedCommand: @escaping (String) -> Void = { _ in }
     ) {
         self.text = text
         self.isPalettePresented = isPalettePresented
@@ -107,6 +124,11 @@ public final class EditorSession: ObservableObject {
         self.isAIResultPresented = false
         self.isAgentPlanPresented = false
         self.isMarkdownPreviewPresented = false
+        self.isRenamePresented = false
+        self.isApprovedCommandPresented = false
+        self.renameDraft = ""
+        self.approvedCommandDraft = ""
+        self.workingDirectoryHint = nil
         self.caretUTF16 = 0
         self.selectionUTF16 = 0..<0
         self.settings = settings
@@ -139,6 +161,12 @@ public final class EditorSession: ObservableObject {
         self.onConfirmAgentPlan = onConfirmAgentPlan
         self.onApplyAgentEdit = onApplyAgentEdit
         self.onInspectGit = onInspectGit
+        self.onGoToDefinition = onGoToDefinition
+        self.onFormatDocument = onFormatDocument
+        self.onBeginRename = onBeginRename
+        self.onConfirmRename = onConfirmRename
+        self.onBeginApprovedCommand = onBeginApprovedCommand
+        self.onConfirmApprovedCommand = onConfirmApprovedCommand
     }
 
     public func applyFileText(_ value: String) {
@@ -183,6 +211,8 @@ public final class EditorSession: ObservableObject {
         isAIResultPresented = false
         isAgentPlanPresented = false
         isMarkdownPreviewPresented = false
+        isRenamePresented = false
+        isApprovedCommandPresented = false
         hoverText = nil
         diagnosticHover = nil
         aiPendingAction = nil
