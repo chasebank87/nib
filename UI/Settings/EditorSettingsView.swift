@@ -29,6 +29,7 @@ public struct EditorSettingsView: View {
         }
         .formStyle(.grouped)
         .frame(width: 460, height: 720)
+        .accessibilityLabel("Editor settings")
         .onAppear(perform: refreshAPIKeyStatus)
         .onChange(of: settings) { _, newValue in
             let sanitized = newValue.sanitized()
@@ -77,6 +78,9 @@ public struct EditorSettingsView: View {
             Toggle("Language server", isOn: $settings.enableLanguageServer)
             Toggle("Demo language server", isOn: $settings.enableDemoLanguageServer)
                 .disabled(settings.enableLanguageServer == false)
+            Toggle("Format on save", isOn: $settings.formatOnSave)
+                .disabled(settings.enableLanguageServer == false)
+                .help("Run Format Document before each save. Save still proceeds if formatting fails.")
         }
     }
 

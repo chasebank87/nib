@@ -24,6 +24,8 @@ public struct EditorSettings: Equatable, Sendable, Codable {
     public var aiBaseURL: String
     /// When true, idle typing can request inline ghost suggestions from the AI provider.
     public var enableInlineGhostText: Bool
+    /// When true, Format Document runs before each save (best-effort; save still proceeds on failure).
+    public var formatOnSave: Bool
 
     /// Legacy toggle mirrored from `aiProviderKind != .mock` for older UI/tests.
     public var enableHTTPProvider: Bool {
@@ -55,6 +57,7 @@ public struct EditorSettings: Equatable, Sendable, Codable {
         aiModel: String = "",
         aiBaseURL: String = "",
         enableInlineGhostText: Bool = true,
+        formatOnSave: Bool = false,
         enableHTTPProvider: Bool? = nil
     ) {
         self.fontName = fontName
@@ -74,6 +77,7 @@ public struct EditorSettings: Equatable, Sendable, Codable {
         self.aiModel = aiModel
         self.aiBaseURL = aiBaseURL
         self.enableInlineGhostText = enableInlineGhostText
+        self.formatOnSave = formatOnSave
         if let enableHTTPProvider {
             self.enableHTTPProvider = enableHTTPProvider
         }
@@ -94,7 +98,7 @@ public struct EditorSettings: Equatable, Sendable, Codable {
         case fontName, fontSize, lineHeight, tabWidth, insertSpaces, wrapLines, ligatures
         case showLineNumbers, highlightCurrentLine, showIndentGuides, themeID
         case enableLanguageServer, enableDemoLanguageServer
-        case aiProviderKind, aiModel, aiBaseURL, enableInlineGhostText
+        case aiProviderKind, aiModel, aiBaseURL, enableInlineGhostText, formatOnSave
         case enableHTTPProvider
     }
 
@@ -129,6 +133,8 @@ public struct EditorSettings: Equatable, Sendable, Codable {
         aiBaseURL = try container.decodeIfPresent(String.self, forKey: .aiBaseURL) ?? ""
         enableInlineGhostText = try container.decodeIfPresent(Bool.self, forKey: .enableInlineGhostText)
             ?? Self.default.enableInlineGhostText
+        formatOnSave = try container.decodeIfPresent(Bool.self, forKey: .formatOnSave)
+            ?? Self.default.formatOnSave
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -150,6 +156,7 @@ public struct EditorSettings: Equatable, Sendable, Codable {
         try container.encode(aiModel, forKey: .aiModel)
         try container.encode(aiBaseURL, forKey: .aiBaseURL)
         try container.encode(enableInlineGhostText, forKey: .enableInlineGhostText)
+        try container.encode(formatOnSave, forKey: .formatOnSave)
         try container.encode(enableHTTPProvider, forKey: .enableHTTPProvider)
     }
 

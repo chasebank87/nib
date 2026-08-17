@@ -24,6 +24,7 @@ final class NibDocument: NSDocument {
     nonisolated(unsafe) private var lspSyncTask: Task<Void, Never>?
     nonisolated(unsafe) private var lspFeatureTask: Task<Void, Never>?
     nonisolated(unsafe) private var ghostTask: Task<Void, Never>?
+    nonisolated(unsafe) private var sharingPicker: NSSharingServicePicker?
     nonisolated(unsafe) private var cancellables = Set<AnyCancellable>()
 
     override init() {
@@ -98,6 +99,9 @@ final class NibDocument: NSDocument {
             session.onGoToDefinition = { [weak self] in
                 self?.goToDefinition()
             }
+            session.onFindReferences = { [weak self] in
+                self?.findReferences()
+            }
             session.onFormatDocument = { [weak self] in
                 self?.formatDocument()
             }
@@ -112,6 +116,12 @@ final class NibDocument: NSDocument {
             }
             session.onConfirmApprovedCommand = { [weak self] command in
                 self?.confirmApprovedCommand(command)
+            }
+            session.onOpenReference = { [weak self] location in
+                self?.openReference(location)
+            }
+            session.onShareFile = { [weak self] in
+                self?.shareFile()
             }
             self.session = session
             self.registerCommands()
@@ -182,6 +192,7 @@ final class NibDocument: NSDocument {
             }
             self.syncWindowChrome()
             self.refreshLanguageAndHighlight()
+            self.refreshGitFileStatus()
             if DocumentLimits.needsOpenWarning(decoded.byteCount) {
                 self.pendingLargeFileByteCount = decoded.byteCount
             }
@@ -198,6 +209,30 @@ final class NibDocument: NSDocument {
         MainActor.assumeIsolated {
             self.clearRecovery()
             self.syncWindowChrome()
+            self.refreshGitFileStatus()
+        }
+    }
+
+    override func save(
+        to url: URL,
+        ofType typeName: String,
+        for saveOperation: NSDocument.SaveOperationType,
+        completionHandler: @escaping (Error?) -> Void
+    ) {
+        let shouldFormat = MainActor.assumeIsolated {
+            session.settings.formatOnSave && session.capabilities.languageServers
+        }
+        guard shouldFormat else {
+            super.save(to: url, ofType: typeName, for: saveOperation, completionHandler: completionHandler)
+            return
+        }
+        Task { @MainActor [weak self] in
+            guard let self else {
+                completionHandler(nil)
+                return
+            }
+            await self.formatBeforeSaveIfEnabled()
+            super.save(to: url, ofType: typeName, for: saveOperation, completionHandler: completionHandler)
         }
     }
 
@@ -349,6 +384,16 @@ final class NibDocument: NSDocument {
         }
         commands.register(
             EditorCommand(
+                id: BuiltInCommandID.findReferences,
+                title: "Find References",
+                keywords: ["lsp", "references", "usages"],
+                shortcutLabel: "⇧⌘]"
+            )
+        ) { [weak self] in
+            self?.findReferences()
+        }
+        commands.register(
+            EditorCommand(
                 id: BuiltInCommandID.formatDocument,
                 title: "Format Document",
                 keywords: ["lsp", "format", "prettier"]
@@ -460,6 +505,15 @@ final class NibDocument: NSDocument {
             )
         ) { [weak self] in
             self?.showGitStatus()
+        }
+        commands.register(
+            EditorCommand(
+                id: BuiltInCommandID.shareFile,
+                title: "Share…",
+                keywords: ["share", "export"]
+            )
+        ) { [weak self] in
+            self?.shareFile()
         }
         commands.register(
             EditorCommand(
@@ -944,6 +998,52 @@ final class NibDocument: NSDocument {
     }
 
     @MainActor
+    private func findReferences() {
+        guard session.capabilities.languageServers else {
+            session.hoverText = "Language server is off."
+            return
+        }
+        let caret = session.caretUTF16
+        let position = LineColumnParser.lspPosition(utf16Offset: caret, in: session.text)
+        lspFeatureTask?.cancel()
+        lspFeatureTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            await self.syncLanguageServerDocument(forceReopen: false)
+            do {
+                let locations = try await AppComposition.shared.languageServer.references(
+                    document: self.lspDocumentIdentity(),
+                    position: position
+                )
+                guard Task.isCancelled == false else { return }
+                self.session.dismissTransientOverlays()
+                self.session.referenceLocations = locations
+                self.session.isReferencesPresented = true
+            } catch {
+                guard Task.isCancelled == false else { return }
+                self.session.hoverText = error.localizedDescription
+                AppLog.lsp.error("references failed \(error.localizedDescription, privacy: .public)")
+            }
+        }
+    }
+
+    @MainActor
+    private func openReference(_ location: LSPLocation) {
+        session.isReferencesPresented = false
+        let currentURI = lspDocumentIdentity().uri
+        if location.uri == currentURI || location.uri.absoluteString == currentURI.absoluteString {
+            let offset = LineColumnParser.utf16Offset(
+                lspLine: location.start.line,
+                lspCharacter: location.start.character,
+                in: session.text
+            )
+            session.pendingCaretUTF16 = offset
+            return
+        }
+        session.hoverText =
+            "Reference is in another file:\n\(location.uri.path)\nL\(location.start.line + 1):\(location.start.character + 1)"
+    }
+
+    @MainActor
     private func formatDocument() {
         guard session.capabilities.languageServers else {
             session.hoverText = "Language server is off."
@@ -972,6 +1072,26 @@ final class NibDocument: NSDocument {
                 self.session.hoverText = error.localizedDescription
                 AppLog.lsp.error("format failed \(error.localizedDescription, privacy: .public)")
             }
+        }
+    }
+
+    @MainActor
+    private func formatBeforeSaveIfEnabled() async {
+        guard session.settings.formatOnSave,
+              session.capabilities.languageServers
+        else { return }
+        do {
+            await syncLanguageServerDocument(forceReopen: false)
+            let edits = try await AppComposition.shared.languageServer.formatting(
+                document: lspDocumentIdentity(),
+                options: session.settings
+            )
+            guard edits.isEmpty == false else { return }
+            let updated = try TextEditApplier.apply(edits, to: session.text)
+            session.applyFileText(updated)
+            handleTextEdit(updated)
+        } catch {
+            AppLog.lsp.error("format on save failed \(error.localizedDescription, privacy: .public)")
         }
     }
 
@@ -1518,6 +1638,32 @@ final class NibDocument: NSDocument {
             )
             session.isAIResultPresented = true
         }
+    }
+
+    @MainActor
+    private func refreshGitFileStatus() {
+        let path = fileURL?.path
+        Task.detached { [weak self] in
+            let mark = GitStatusReader.fileMark(for: path)
+            await MainActor.run {
+                self?.session.gitStatusLabel = mark.statusLabel
+            }
+        }
+    }
+
+    @MainActor
+    private func shareFile() {
+        guard let url = fileURL,
+              let window = windowControllers.first?.window,
+              let view = window.contentView
+        else {
+            session.hoverText = "Save the file first to share it."
+            return
+        }
+        let picker = NSSharingServicePicker(items: [url])
+        sharingPicker = picker
+        let rect = NSRect(x: view.bounds.midX, y: 8, width: 1, height: 1)
+        picker.show(relativeTo: rect, of: view, preferredEdge: .minY)
     }
 
     @MainActor

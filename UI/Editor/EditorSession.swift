@@ -21,9 +21,12 @@ public final class EditorSession: ObservableObject {
     @Published public var isMarkdownPreviewPresented: Bool
     @Published public var isRenamePresented: Bool
     @Published public var isApprovedCommandPresented: Bool
+    @Published public var isReferencesPresented: Bool
     @Published public var renameDraft: String
     @Published public var approvedCommandDraft: String
     @Published public var workingDirectoryHint: String?
+    @Published public var referenceLocations: [LSPLocation]
+    @Published public var gitStatusLabel: String
     @Published public var caretUTF16: Int
     @Published public var selectionUTF16: Range<Int>
     @Published public var pendingCaretUTF16: Int?
@@ -71,11 +74,14 @@ public final class EditorSession: ObservableObject {
     public var onApplyAgentEdit: () -> Void
     public var onInspectGit: () -> Void
     public var onGoToDefinition: () -> Void
+    public var onFindReferences: () -> Void
     public var onFormatDocument: () -> Void
     public var onBeginRename: () -> Void
     public var onConfirmRename: (String) -> Void
     public var onBeginApprovedCommand: () -> Void
     public var onConfirmApprovedCommand: (String) -> Void
+    public var onOpenReference: (LSPLocation) -> Void
+    public var onShareFile: () -> Void
 
     private var isApplyingFileText = false
 
@@ -109,11 +115,14 @@ public final class EditorSession: ObservableObject {
         onApplyAgentEdit: @escaping () -> Void = {},
         onInspectGit: @escaping () -> Void = {},
         onGoToDefinition: @escaping () -> Void = {},
+        onFindReferences: @escaping () -> Void = {},
         onFormatDocument: @escaping () -> Void = {},
         onBeginRename: @escaping () -> Void = {},
         onConfirmRename: @escaping (String) -> Void = { _ in },
         onBeginApprovedCommand: @escaping () -> Void = {},
-        onConfirmApprovedCommand: @escaping (String) -> Void = { _ in }
+        onConfirmApprovedCommand: @escaping (String) -> Void = { _ in },
+        onOpenReference: @escaping (LSPLocation) -> Void = { _ in },
+        onShareFile: @escaping () -> Void = {}
     ) {
         self.text = text
         self.isPalettePresented = isPalettePresented
@@ -126,9 +135,12 @@ public final class EditorSession: ObservableObject {
         self.isMarkdownPreviewPresented = false
         self.isRenamePresented = false
         self.isApprovedCommandPresented = false
+        self.isReferencesPresented = false
         self.renameDraft = ""
         self.approvedCommandDraft = ""
         self.workingDirectoryHint = nil
+        self.referenceLocations = []
+        self.gitStatusLabel = ""
         self.caretUTF16 = 0
         self.selectionUTF16 = 0..<0
         self.settings = settings
@@ -162,11 +174,14 @@ public final class EditorSession: ObservableObject {
         self.onApplyAgentEdit = onApplyAgentEdit
         self.onInspectGit = onInspectGit
         self.onGoToDefinition = onGoToDefinition
+        self.onFindReferences = onFindReferences
         self.onFormatDocument = onFormatDocument
         self.onBeginRename = onBeginRename
         self.onConfirmRename = onConfirmRename
         self.onBeginApprovedCommand = onBeginApprovedCommand
         self.onConfirmApprovedCommand = onConfirmApprovedCommand
+        self.onOpenReference = onOpenReference
+        self.onShareFile = onShareFile
     }
 
     public func applyFileText(_ value: String) {
@@ -213,11 +228,13 @@ public final class EditorSession: ObservableObject {
         isMarkdownPreviewPresented = false
         isRenamePresented = false
         isApprovedCommandPresented = false
+        isReferencesPresented = false
         hoverText = nil
         diagnosticHover = nil
         aiPendingAction = nil
         aiResult = nil
         agentPlan = nil
+        referenceLocations = []
     }
 
     public func clearGhostIfCaretMoved() {

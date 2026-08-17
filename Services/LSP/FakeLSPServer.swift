@@ -68,6 +68,7 @@ public actor FakeLSPServer {
                             "completionProvider": ["triggerCharacters": ["."]],
                             "hoverProvider": true,
                             "definitionProvider": true,
+                            "referencesProvider": true,
                             "documentFormattingProvider": true,
                             "renameProvider": true,
                         ],
@@ -129,6 +130,28 @@ public actor FakeLSPServer {
                         "range": [
                             "start": ["line": 0, "character": 0],
                             "end": ["line": 0, "character": 5],
+                        ],
+                    ]
+                )
+            case "textDocument/references":
+                let uri = ((params["textDocument"] as? [String: Any])?["uri"] as? String)
+                    ?? "file:///tmp/demo.py"
+                try await reply(
+                    id: id,
+                    result: [
+                        [
+                            "uri": uri,
+                            "range": [
+                                "start": ["line": 0, "character": 0],
+                                "end": ["line": 0, "character": 5],
+                            ],
+                        ],
+                        [
+                            "uri": uri,
+                            "range": [
+                                "start": ["line": 1, "character": 0],
+                                "end": ["line": 1, "character": 5],
+                            ],
                         ],
                     ]
                 )

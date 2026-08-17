@@ -35,6 +35,7 @@ public actor LSPClient: LanguageServerClienting, DiagnosticPublishing {
                         "completion": ["dynamicRegistration": false],
                         "hover": ["dynamicRegistration": false],
                         "definition": ["dynamicRegistration": false],
+                        "references": ["dynamicRegistration": false],
                         "rename": ["dynamicRegistration": false],
                         "formatting": ["dynamicRegistration": false],
                     ],
@@ -178,6 +179,22 @@ public actor LSPClient: LanguageServerClienting, DiagnosticPublishing {
             params: [
                 "textDocument": ["uri": document.uri.absoluteString],
                 "position": ["line": position.line, "character": position.character],
+            ]
+        )
+        return Self.mapLocations(result)
+    }
+
+    public func references(
+        document: LSPDocumentIdentity,
+        position: LSPPosition
+    ) async throws -> [LSPLocation] {
+        try await ensureStarted()
+        let result = try await request(
+            method: "textDocument/references",
+            params: [
+                "textDocument": ["uri": document.uri.absoluteString],
+                "position": ["line": position.line, "character": position.character],
+                "context": ["includeDeclaration": true],
             ]
         )
         return Self.mapLocations(result)

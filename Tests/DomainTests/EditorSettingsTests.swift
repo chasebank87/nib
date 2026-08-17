@@ -36,6 +36,15 @@ struct EditorSettingsTests {
         #expect(loaded.enableLanguageServer == false)
         #expect(loaded.enableDemoLanguageServer == true)
     }
+
+    @Test func decodesFormatOnSave() {
+        let json = #"{"formatOnSave":true,"fontSize":13}"#
+        let settings = EditorSettings.decoded(from: json)
+        #expect(settings.formatOnSave)
+        #expect(EditorSettings.default.formatOnSave == false)
+        let omitted = EditorSettings.decoded(from: #"{"fontSize":13}"#)
+        #expect(omitted.formatOnSave == false)
+    }
 }
 
 struct RecoveryStoreTests {

@@ -155,6 +155,10 @@ public struct LSPLocation: Equatable, Sendable {
         self.start = start
         self.end = end
     }
+
+    public var displayLabel: String {
+        "\(uri.lastPathComponent):\(start.line + 1):\(start.character + 1)"
+    }
 }
 
 public struct TextEdit: Equatable, Sendable {
@@ -186,6 +190,10 @@ public protocol LanguageServerClienting: Sendable {
         position: LSPPosition
     ) async throws -> HoverInfo?
     func definition(
+        document: LSPDocumentIdentity,
+        position: LSPPosition
+    ) async throws -> [LSPLocation]
+    func references(
         document: LSPDocumentIdentity,
         position: LSPPosition
     ) async throws -> [LSPLocation]

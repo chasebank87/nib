@@ -39,6 +39,7 @@ public struct CommandPaletteView: View {
                     .foregroundStyle(theme.color(.paletteForeground))
                     .padding(14)
                     .onSubmit(runSelected)
+                    .accessibilityLabel("Command filter")
 
                 Divider().overlay(theme.color(.overlayBorder))
 
@@ -67,6 +68,8 @@ public struct CommandPaletteView: View {
                     .stroke(theme.color(.overlayBorder), lineWidth: 1)
             )
             .shadow(color: .black.opacity(0.28), radius: 28, y: 12)
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel("Command palette")
         }
         .onAppear {
             selectedID = filtered.first?.id

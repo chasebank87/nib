@@ -61,7 +61,7 @@ Shipped themes + user theme JSON from Application Support, Tree-sitter highlight
 
 ### Phase 3 — LSP and IDE capabilities
 
-Document-centric LSP with PATH auto-detection (Pyright, typescript-language-server, SourceKit, ZLS, …), optional demo FakeLSP, underlined diagnostics with hover, completion, hover, go to definition, format document, and rename. Real server install UI and references follow. Useful with language server off.
+Document-centric LSP with PATH auto-detection (Pyright, typescript-language-server, SourceKit, ZLS, …), optional demo FakeLSP, underlined diagnostics with hover, completion, hover, go to definition, find references, format document (optional on save), and rename. Real server install UI follows. Useful with language server off.
 
 ### Phase 4 — AI selection actions
 
@@ -73,7 +73,7 @@ Visible agent plan orchestrator (`⇧⌘A`), tool permission gates, read-selecti
 
 ### Phase 6 — Release polish
 
-Accessibility audit, performance pass, Markdown preview overlay (`⌥⌘M`), compact Git status, Share/Quick Look, optional CLI launcher, notarization path.
+Accessibility audit, performance pass, Markdown preview overlay (`⌥⌘M`), git dirty letter in the status bar, Share…, About nib, optional CLI launcher, notarization path.
 
 ## MVP acceptance criteria
 

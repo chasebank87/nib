@@ -38,6 +38,9 @@ struct NibApp: App {
                     NSWorkspace.shared.activateFileViewerSelecting([url])
                 }
                 .keyboardShortcut("r", modifiers: [.command, .option])
+                Button("Share…") {
+                    NotificationCenter.default.post(name: .nibShareFile, object: nil)
+                }
             }
             CommandGroup(after: .pasteboard) {
                 Button("Find…") {
@@ -56,6 +59,10 @@ struct NibApp: App {
                     NotificationCenter.default.post(name: .nibGoToDefinition, object: nil)
                 }
                 .keyboardShortcut("]", modifiers: .command)
+                Button("Find References") {
+                    NotificationCenter.default.post(name: .nibFindReferences, object: nil)
+                }
+                .keyboardShortcut("]", modifiers: [.command, .shift])
                 Button("Format Document") {
                     NotificationCenter.default.post(name: .nibFormatDocument, object: nil)
                 }
@@ -113,6 +120,16 @@ struct NibApp: App {
                 Button("Toggle Appearance") {
                     AppComposition.shared.appearance.cycle()
                     NotificationCenter.default.post(name: .nibAppearanceDidChange, object: nil)
+                }
+                Button("About nib") {
+                    NSApp.orderFrontStandardAboutPanel(
+                        options: [
+                            .applicationName: "nib",
+                            .credits: NSAttributedString(
+                                string: "A native macOS single-pane editor.\nhttps://github.com/chasebank87/nib"
+                            ),
+                        ]
+                    )
                 }
             }
         }

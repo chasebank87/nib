@@ -55,5 +55,6 @@ public struct LanguageMenu: View {
         .menuIndicator(.hidden)
         .fixedSize()
         .help("Set language for highlighting and LSP")
+        .accessibilityLabel("Language \(language.name)")
     }
 }

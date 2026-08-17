@@ -150,7 +150,7 @@ Independently testable tickets. Status: `done` means this repository already inc
 
 ## NIB-012 — LSP completion, diagnostics, and hover
 
-- **Status:** done (real/demo servers + underlines/hover + completion overlay)
+- **Status:** done (real/demo servers + underlines/hover + completion, definition, references, format, rename)
 - **Goal:** First useful IDE loop on the current file.
 - **Scope:** Map protocol types to Domain; overlay UI; diagnostic gutter marks (simple).
 - **Acceptance:** Fake server can inject a diagnostic and a completion item; accepting a completion edits the document via undo.
@@ -220,6 +220,7 @@ Independently testable tickets. Status: `done` means this repository already inc
 
 ## NIB-018 — Accessibility and keyboard audit
 
+- **Status:** partial (AX labels on palette, language menu, settings, overlays; VoiceOver checklist still open)
 - **Goal:** Palette, alerts, and the editor are usable with VoiceOver and full keyboard access.
 - **Scope:** AX labels on overlays, focus return after palette dismiss, contrast check against theme tokens.
 - **Acceptance:** Written checklist signed off against VoiceOver on macOS 15; no unlabeled buttons in the palette.

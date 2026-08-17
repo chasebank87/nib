@@ -34,6 +34,7 @@ public enum BuiltInCommandID {
     public static let complete = "lsp.complete"
     public static let hover = "lsp.hover"
     public static let goToDefinition = "lsp.goToDefinition"
+    public static let findReferences = "lsp.findReferences"
     public static let formatDocument = "lsp.formatDocument"
     public static let renameSymbol = "lsp.renameSymbol"
     public static let explainSelection = "ai.explainSelection"
@@ -46,6 +47,7 @@ public enum BuiltInCommandID {
     public static let runAgent = "ai.runAgent"
     public static let markdownPreview = "view.markdownPreview"
     public static let gitStatus = "git.status"
+    public static let shareFile = "file.share"
     public static let runApprovedCommand = "shell.runApprovedCommand"
 }
 

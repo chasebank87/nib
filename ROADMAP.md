@@ -54,8 +54,8 @@ Phases are capability slices, not calendar estimates. Each phase should leave `m
 
 - Server install/config UI (palette/settings), stdio client, document lifecycle — **partial** (PATH auto-detect + demo FakeLSP + settings toggles; dedicated install UI follows)
 - Incremental sync, cancellation, sensible timeouts — **done** (full-document sync + cancel; timeouts follow)
-- Diagnostics, completion, hover, definition/declaration, references, rename — **partial** (underlined diagnostics + hover, completion, go to definition, rename; references follow)
-- Code actions, document symbols, formatting (on demand and optional on save) — **partial** (on-demand Format Document; on-save optional follows)
+- Diagnostics, completion, hover, definition/declaration, references, rename — **done** for current-file (underlined diagnostics + hover, completion, go to definition, find references, rename)
+- Code actions, document symbols, formatting (on demand and optional on save) — **partial** (Format Document + format on save; code actions/symbols follow)
 - Semantic tokens when the server provides them
 - Error states: server missing, crashed, or slow — editor stays usable — **done** (missing server shows status; editing continues)
 
@@ -90,13 +90,13 @@ Phases are capability slices, not calendar estimates. Each phase should leave `m
 
 **Goal.** Ship-quality Mac utility.
 
-- Accessibility audit (VoiceOver on editor, palette, overlays)
+- Accessibility audit (VoiceOver on editor, palette, overlays) — **partial** (labels on palette, language menu, overlays, settings)
 - Performance: open/scroll/search on large files; Instruments pass
 - Markdown preview as a temporary mode/overlay — **partial** (`⌥⌘M` overlay)
-- Git-aware modified indicator; blame/history still optional — **partial** (palette Git Status)
-- Quick Look, Share Sheet
+- Git-aware modified indicator; blame/history still optional — **partial** (status-bar M/S/U + palette Git Status)
+- Quick Look, Share Sheet — **partial** (Share… via NSSharingServicePicker)
 - Optional command-line launcher
 - Notarization / Hardened Runtime
-- Icon, about panel, first-run appearance
+- Icon, about panel, first-run appearance — **partial** (About nib)
 
 **Exit.** A stranger can download a build, open a file, and understand the product in one sitting.

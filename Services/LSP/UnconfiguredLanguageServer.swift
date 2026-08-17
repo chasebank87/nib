@@ -46,6 +46,14 @@ public struct UnconfiguredLanguageServer: LanguageServerClienting, LanguageServe
         return []
     }
 
+    public func references(
+        document: LSPDocumentIdentity,
+        position: LSPPosition
+    ) async throws -> [LSPLocation] {
+        _ = (document, position)
+        return []
+    }
+
     public func formatting(
         document: LSPDocumentIdentity,
         options: EditorSettings

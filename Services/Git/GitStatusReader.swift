@@ -32,6 +32,24 @@ public struct GitStatusSnapshot: Equatable, Sendable {
     }
 }
 
+public enum GitFileMark: String, Equatable, Sendable {
+    case clean
+    case modified
+    case staged
+    case untracked
+    case unknown
+
+    public var statusLabel: String {
+        switch self {
+        case .clean: return ""
+        case .modified: return "M"
+        case .staged: return "S"
+        case .untracked: return "U"
+        case .unknown: return ""
+        }
+    }
+}
+
 /// Read-only Git inspection. Never mutates the repository.
 public enum GitStatusReader {
     public static func snapshot(startingAt path: String?) throws -> GitStatusSnapshot {
@@ -43,6 +61,54 @@ public enum GitStatusReader {
         let porcelain = try runGit(["status", "--porcelain"], in: root)
         let diffStat = (try? runGit(["diff", "--stat"], in: root)) ?? ""
         return GitStatusSnapshot(branch: branch, porcelain: porcelain, diffStat: diffStat)
+    }
+
+    public static func fileMark(for path: String?) -> GitFileMark {
+        guard let path, path.isEmpty == false else { return .unknown }
+        guard let root = findGitRoot(startingAt: path) else { return .unknown }
+        let relative = relativePath(path, from: root)
+        guard let porcelain = try? runGit(["status", "--porcelain", "--", relative], in: root) else {
+            return .unknown
+        }
+        return mark(for: path, porcelain: porcelain)
+    }
+
+    public static func mark(for path: String, porcelain: String) -> GitFileMark {
+        let name = (path as NSString).lastPathComponent
+        let lines = porcelain.split(separator: "\n").map(String.init)
+        guard let line = lines.first(where: { porcelainLine($0, matches: path, name: name) }) else {
+            return .clean
+        }
+        guard line.count >= 2 else { return .clean }
+        let index = line[line.startIndex]
+        let worktree = line[line.index(after: line.startIndex)]
+        if index == "?" { return .untracked }
+        if worktree == "M" || worktree == "D" { return .modified }
+        if index == "M" || index == "A" || index == "D" { return .staged }
+        return .clean
+    }
+
+    private static func porcelainLine(_ line: String, matches path: String, name: String) -> Bool {
+        guard line.count >= 3 else { return false }
+        var payload = String(line.dropFirst(2)).trimmingCharacters(in: .whitespaces)
+        if payload.hasPrefix("\"") {
+            payload = payload.trimmingCharacters(in: CharacterSet(charactersIn: "\""))
+        }
+        if let arrow = payload.range(of: " -> ") {
+            payload = String(payload[arrow.upperBound...])
+        }
+        if payload == name || payload.hasSuffix("/" + name) {
+            return true
+        }
+        return path.hasSuffix("/" + payload)
+    }
+
+    private static func relativePath(_ path: String, from root: String) -> String {
+        let prefix = root.hasSuffix("/") ? root : root + "/"
+        if path.hasPrefix(prefix) {
+            return String(path.dropFirst(prefix.count))
+        }
+        return (path as NSString).lastPathComponent
     }
 
     public static func findGitRoot(startingAt path: String?) -> String? {

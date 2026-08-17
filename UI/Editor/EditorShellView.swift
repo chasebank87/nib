@@ -189,6 +189,18 @@ public struct EditorShellView: View {
                 onDismiss: { session.isApprovedCommandPresented = false }
             )
         }
+        if session.isReferencesPresented {
+            LocationListOverlayView(
+                title: "References",
+                locations: session.referenceLocations,
+                theme: session.theme,
+                onSelect: { session.onOpenReference($0) },
+                onDismiss: {
+                    session.isReferencesPresented = false
+                    session.referenceLocations = []
+                }
+            )
+        }
     }
 
     private var statusBar: some View {
@@ -196,10 +208,18 @@ public struct EditorShellView: View {
             HStack(spacing: 8) {
                 statusLeading
                 Spacer(minLength: 8)
+                if session.gitStatusLabel.isEmpty == false {
+                    Text(session.gitStatusLabel)
+                        .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(session.theme.color(.gutterForeground))
+                        .help("Git status of this file")
+                        .accessibilityLabel("Git \(session.gitStatusLabel)")
+                }
                 Text(session.lspStatus)
                     .font(.system(size: 11))
                     .foregroundStyle(session.theme.color(.gutterForeground))
                     .lineLimit(1)
+                    .accessibilityLabel("Language server \(session.lspStatus)")
             }
 
             LanguageMenu(
@@ -376,6 +396,9 @@ private struct EditorShellCoreNotifications: ViewModifier {
             .onReceive(NotificationCenter.default.publisher(for: .nibGoToDefinition)) { _ in
                 session.onGoToDefinition()
             }
+            .onReceive(NotificationCenter.default.publisher(for: .nibFindReferences)) { _ in
+                session.onFindReferences()
+            }
             .onReceive(NotificationCenter.default.publisher(for: .nibFormatDocument)) { _ in
                 session.onFormatDocument()
             }
@@ -420,6 +443,9 @@ private struct EditorShellAINotifications: ViewModifier {
             }
             .onReceive(NotificationCenter.default.publisher(for: .nibGitStatus)) { _ in
                 session.onInspectGit()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .nibShareFile)) { _ in
+                session.onShareFile()
             }
             .onReceive(NotificationCenter.default.publisher(for: .nibRunApprovedCommand)) { _ in
                 session.onBeginApprovedCommand()

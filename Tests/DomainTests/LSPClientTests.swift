@@ -131,6 +131,12 @@ struct FakeLSPIntegrationTests {
         )
         #expect(renamed.first?.newText == "hello")
 
+        let refs = try await pair.client.references(
+            document: identity,
+            position: LSPPosition(line: 0, character: 0)
+        )
+        #expect(refs.count == 2)
+
         await pair.client.stop()
         await pair.server.stop()
     }
