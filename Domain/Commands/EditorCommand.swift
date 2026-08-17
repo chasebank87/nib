@@ -36,6 +36,11 @@ public enum BuiltInCommandID {
     public static let explainSelection = "ai.explainSelection"
     public static let editSelection = "ai.editSelection"
     public static let documentSelection = "ai.documentSelection"
+    public static let fixDiagnostic = "ai.fixDiagnostic"
+    public static let askAboutFile = "ai.askAboutFile"
+    public static let generateSelection = "ai.generateSelection"
+    public static let inlineSuggest = "ai.inlineSuggest"
+    public static let runAgent = "ai.runAgent"
 }
 
 public enum CommandFilter {

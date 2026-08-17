@@ -17,6 +17,7 @@ public final class EditorSession: ObservableObject {
     @Published public var isCompletionPresented: Bool
     @Published public var isAIDisclosurePresented: Bool
     @Published public var isAIResultPresented: Bool
+    @Published public var isAgentPlanPresented: Bool
     @Published public var caretUTF16: Int
     @Published public var selectionUTF16: Range<Int>
     @Published public var pendingCaretUTF16: Int?
@@ -35,8 +36,10 @@ public final class EditorSession: ObservableObject {
     @Published public var completions: [CompletionItem]
     @Published public var hoverText: String?
     @Published public var diagnosticHover: DiagnosticHover?
+    @Published public var ghostSuggestion: GhostSuggestion?
     @Published public var aiPendingAction: AIPendingAction?
     @Published public var aiResult: AISessionResult?
+    @Published public var agentPlan: AgentPlan?
     @Published public var lspStatus: String
 
     public let commands = CommandRegistry()
@@ -51,9 +54,15 @@ public final class EditorSession: ObservableObject {
     public var onRequestCompletions: () -> Void
     public var onInsertCompletion: (CompletionItem) -> Void
     public var onRequestHover: () -> Void
+    public var onRequestInlineSuggestion: () -> Void
+    public var onAcceptGhost: (GhostAcceptMode) -> Void
+    public var onDismissGhost: () -> Void
     public var onAIAction: (AIActionKind) -> Void
     public var onConfirmAIDisclosure: () -> Void
     public var onApplyAIEdit: () -> Void
+    public var onRunAgentPlan: () -> Void
+    public var onConfirmAgentPlan: () -> Void
+    public var onApplyAgentEdit: () -> Void
 
     private var isApplyingFileText = false
 
@@ -76,9 +85,15 @@ public final class EditorSession: ObservableObject {
         onRequestCompletions: @escaping () -> Void = {},
         onInsertCompletion: @escaping (CompletionItem) -> Void = { _ in },
         onRequestHover: @escaping () -> Void = {},
+        onRequestInlineSuggestion: @escaping () -> Void = {},
+        onAcceptGhost: @escaping (GhostAcceptMode) -> Void = { _ in },
+        onDismissGhost: @escaping () -> Void = {},
         onAIAction: @escaping (AIActionKind) -> Void = { _ in },
         onConfirmAIDisclosure: @escaping () -> Void = {},
-        onApplyAIEdit: @escaping () -> Void = {}
+        onApplyAIEdit: @escaping () -> Void = {},
+        onRunAgentPlan: @escaping () -> Void = {},
+        onConfirmAgentPlan: @escaping () -> Void = {},
+        onApplyAgentEdit: @escaping () -> Void = {}
     ) {
         self.text = text
         self.isPalettePresented = isPalettePresented
@@ -87,6 +102,7 @@ public final class EditorSession: ObservableObject {
         self.isCompletionPresented = false
         self.isAIDisclosurePresented = false
         self.isAIResultPresented = false
+        self.isAgentPlanPresented = false
         self.caretUTF16 = 0
         self.selectionUTF16 = 0..<0
         self.settings = settings
@@ -109,9 +125,15 @@ public final class EditorSession: ObservableObject {
         self.onRequestHover = onRequestHover
         self.onRequestCompletions = onRequestCompletions
         self.onInsertCompletion = onInsertCompletion
+        self.onRequestInlineSuggestion = onRequestInlineSuggestion
+        self.onAcceptGhost = onAcceptGhost
+        self.onDismissGhost = onDismissGhost
         self.onAIAction = onAIAction
         self.onConfirmAIDisclosure = onConfirmAIDisclosure
         self.onApplyAIEdit = onApplyAIEdit
+        self.onRunAgentPlan = onRunAgentPlan
+        self.onConfirmAgentPlan = onConfirmAgentPlan
+        self.onApplyAgentEdit = onApplyAgentEdit
     }
 
     public func applyFileText(_ value: String) {
@@ -154,10 +176,19 @@ public final class EditorSession: ObservableObject {
         isCompletionPresented = false
         isAIDisclosurePresented = false
         isAIResultPresented = false
+        isAgentPlanPresented = false
         hoverText = nil
         diagnosticHover = nil
         aiPendingAction = nil
         aiResult = nil
+        agentPlan = nil
+    }
+
+    public func clearGhostIfCaretMoved() {
+        guard let ghost = ghostSuggestion else { return }
+        if caretUTF16 != ghost.anchorUTF16 || selectionUTF16.count > 0 {
+            ghostSuggestion = nil
+        }
     }
 
     public func runFind() {
@@ -207,6 +238,14 @@ public enum AIActionKind: String, Equatable, Sendable {
     case explain
     case edit
     case document
+    case fixDiagnostic
+    case askAboutFile
+    case generate
+}
+
+public enum GhostAcceptMode: String, Equatable, Sendable {
+    case all
+    case word
 }
 
 public struct AIPendingAction: Equatable, Sendable {
@@ -214,17 +253,23 @@ public struct AIPendingAction: Equatable, Sendable {
     public var selection: String
     public var selectionRange: Range<Int>
     public var disclosure: ContextDisclosure
+    public var diagnosticsText: String?
+    public var fileText: String?
 
     public init(
         kind: AIActionKind,
         selection: String,
         selectionRange: Range<Int>,
-        disclosure: ContextDisclosure
+        disclosure: ContextDisclosure,
+        diagnosticsText: String? = nil,
+        fileText: String? = nil
     ) {
         self.kind = kind
         self.selection = selection
         self.selectionRange = selectionRange
         self.disclosure = disclosure
+        self.diagnosticsText = diagnosticsText
+        self.fileText = fileText
     }
 
     public var title: String {
@@ -232,6 +277,9 @@ public struct AIPendingAction: Equatable, Sendable {
         case .explain: return "Explain Selection"
         case .edit: return "Edit Selection"
         case .document: return "Document Selection"
+        case .fixDiagnostic: return "Fix Diagnostic"
+        case .askAboutFile: return "Ask About This File"
+        case .generate: return "Generate from Selection"
         }
     }
 
@@ -240,6 +288,9 @@ public struct AIPendingAction: Equatable, Sendable {
         case .explain: return "Explain this selection"
         case .edit: return "Edit this selection"
         case .document: return "Document this selection"
+        case .fixDiagnostic: return "Fix this diagnostic"
+        case .askAboutFile: return "Ask about this file"
+        case .generate: return "Generate from this selection"
         }
     }
 }
@@ -248,12 +299,20 @@ public struct AISessionResult: Equatable, Sendable {
     public var title: String
     public var text: String
     public var proposedEdit: String?
+    public var originalText: String?
     public var selectionRange: Range<Int>
 
-    public init(title: String, text: String, proposedEdit: String?, selectionRange: Range<Int>) {
+    public init(
+        title: String,
+        text: String,
+        proposedEdit: String?,
+        originalText: String? = nil,
+        selectionRange: Range<Int>
+    ) {
         self.title = title
         self.text = text
         self.proposedEdit = proposedEdit
+        self.originalText = originalText
         self.selectionRange = selectionRange
     }
 }

@@ -31,6 +31,7 @@ public struct EditorShellView: View {
                     pendingCaretUTF16: $session.pendingCaretUTF16,
                     pendingSelectionUTF16: $session.pendingSelectionUTF16,
                     diagnosticHover: $session.diagnosticHover,
+                    ghostSuggestion: session.ghostSuggestion,
                     theme: session.theme,
                     settings: session.settings,
                     capabilities: session.capabilities,
@@ -39,7 +40,10 @@ public struct EditorShellView: View {
                     diagnostics: session.diagnostics,
                     wrapLines: session.settings.wrapLines
                         && session.capabilities.wrapLines
-                        && session.reducedFeatureMessage == nil
+                        && session.reducedFeatureMessage == nil,
+                    onAcceptGhost: { session.onAcceptGhost($0) },
+                    onDismissGhost: { session.onDismissGhost() },
+                    onCaretMoved: { session.clearGhostIfCaretMoved() }
                 )
 
                 statusBar
@@ -118,11 +122,25 @@ public struct EditorShellView: View {
                     title: result.title,
                     text: result.text,
                     proposedEdit: result.proposedEdit,
+                    originalText: result.originalText,
                     theme: session.theme,
                     onApply: result.proposedEdit == nil ? nil : { session.onApplyAIEdit() },
                     onDismiss: {
                         session.isAIResultPresented = false
                         session.aiResult = nil
+                    }
+                )
+            }
+
+            if session.isAgentPlanPresented, let plan = session.agentPlan {
+                AgentPlanOverlayView(
+                    plan: plan,
+                    theme: session.theme,
+                    onRun: { session.onConfirmAgentPlan() },
+                    onApply: plan.proposedEdit == nil ? nil : { session.onApplyAgentEdit() },
+                    onDismiss: {
+                        session.isAgentPlanPresented = false
+                        session.agentPlan = nil
                     }
                 )
             }
@@ -157,6 +175,21 @@ public struct EditorShellView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: .nibDocumentSelection)) { _ in
             session.onAIAction(.document)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .nibFixDiagnostic)) { _ in
+            session.onAIAction(.fixDiagnostic)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .nibAskAboutFile)) { _ in
+            session.onAIAction(.askAboutFile)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .nibGenerateSelection)) { _ in
+            session.onAIAction(.generate)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .nibInlineSuggest)) { _ in
+            session.onRequestInlineSuggestion()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .nibRunAgent)) { _ in
+            session.onRunAgentPlan()
         }
         .onReceive(NotificationCenter.default.publisher(for: .nibAppearanceDidChange)) { _ in
             session.theme = resolveTheme()

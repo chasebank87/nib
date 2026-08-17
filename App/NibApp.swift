@@ -63,6 +63,23 @@ struct NibApp: App {
                 Button("Document Selection") {
                     NotificationCenter.default.post(name: .nibDocumentSelection, object: nil)
                 }
+                Button("Fix Diagnostic") {
+                    NotificationCenter.default.post(name: .nibFixDiagnostic, object: nil)
+                }
+                Button("Ask About This File") {
+                    NotificationCenter.default.post(name: .nibAskAboutFile, object: nil)
+                }
+                Button("Generate from Selection") {
+                    NotificationCenter.default.post(name: .nibGenerateSelection, object: nil)
+                }
+                Button("Inline Suggestion") {
+                    NotificationCenter.default.post(name: .nibInlineSuggest, object: nil)
+                }
+                .keyboardShortcut("]", modifiers: .option)
+                Button("Run Agent on Selection") {
+                    NotificationCenter.default.post(name: .nibRunAgent, object: nil)
+                }
+                .keyboardShortcut("a", modifiers: [.command, .shift])
             }
             CommandMenu("View") {
                 Button("Command Palette") {

@@ -16,6 +16,10 @@ public struct EditorSettings: Equatable, Sendable, Codable {
     public var enableLanguageServer: Bool
     /// When true (and language server enabled), use the built-in FakeLSP instead of PATH servers.
     public var enableDemoLanguageServer: Bool
+    /// When true and a Keychain API key exists, route AI through the HTTP OpenAI-compatible adapter.
+    public var enableHTTPProvider: Bool
+    /// When true, idle typing can request inline ghost suggestions from the AI provider.
+    public var enableInlineGhostText: Bool
 
     public init(
         fontName: String = EditorSettings.systemMonospaceName,
@@ -30,7 +34,9 @@ public struct EditorSettings: Equatable, Sendable, Codable {
         showIndentGuides: Bool = false,
         themeID: String? = nil,
         enableLanguageServer: Bool = true,
-        enableDemoLanguageServer: Bool = false
+        enableDemoLanguageServer: Bool = false,
+        enableHTTPProvider: Bool = false,
+        enableInlineGhostText: Bool = true
     ) {
         self.fontName = fontName
         self.fontSize = fontSize
@@ -45,6 +51,8 @@ public struct EditorSettings: Equatable, Sendable, Codable {
         self.themeID = themeID
         self.enableLanguageServer = enableLanguageServer
         self.enableDemoLanguageServer = enableDemoLanguageServer
+        self.enableHTTPProvider = enableHTTPProvider
+        self.enableInlineGhostText = enableInlineGhostText
     }
 
     public static let `default` = EditorSettings()
@@ -78,6 +86,10 @@ public struct EditorSettings: Equatable, Sendable, Codable {
             ?? Self.default.enableLanguageServer
         enableDemoLanguageServer = try container.decodeIfPresent(Bool.self, forKey: .enableDemoLanguageServer)
             ?? Self.default.enableDemoLanguageServer
+        enableHTTPProvider = try container.decodeIfPresent(Bool.self, forKey: .enableHTTPProvider)
+            ?? Self.default.enableHTTPProvider
+        enableInlineGhostText = try container.decodeIfPresent(Bool.self, forKey: .enableInlineGhostText)
+            ?? Self.default.enableInlineGhostText
     }
 
     public func sanitized() -> EditorSettings {

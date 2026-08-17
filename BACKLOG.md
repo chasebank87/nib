@@ -186,7 +186,7 @@ Independently testable tickets. Status: `done` means this repository already inc
 
 ## NIB-015 — Agent permission gate and diff apply
 
-- **Status:** done (permission controller + selection replace apply path; full agent tools follow)
+- **Status:** done (permission controller + selection replace apply path + agent plan overlay; workspace/Git tools follow)
 - **Goal:** No silent writes.
 - **Scope:** `ToolPermission` prompts, apply-patch tool that produces a Domain diff, review overlay, apply through `NibDocument` (undoable). Still no arbitrary shell.
 - **Acceptance:** Apply without grant is denied. Granted apply changes the buffer and can be undone. Denied grant leaves the file untouched.

@@ -15,6 +15,7 @@ final class AppComposition: ObservableObject {
     let secrets: SecretStoring
     let aiProvider: AIProvider
     let toolPermissions: ToolPermissionController
+    let agentOrchestrator: AgentOrchestrator
     let languageDetector: LanguageDetecting
     let syntaxHighlighter: SyntaxHighlighting
     let themeCatalog: ThemeCatalog
@@ -26,7 +27,7 @@ final class AppComposition: ObservableObject {
         appearanceApplier: AppearanceApplying = AppKitAppearanceApplier(),
         languageServers: LanguageServerController? = nil,
         secrets: SecretStoring = KeychainSecretStore(),
-        aiProvider: AIProvider = MockAIProvider(),
+        aiProvider: AIProvider? = nil,
         toolPermissions: ToolPermissionController? = nil,
         recovery: DocumentRecoveryStoring? = nil,
         languageDetector: LanguageDetecting = DefaultLanguageDetector(),
@@ -36,8 +37,8 @@ final class AppComposition: ObservableObject {
         self.settings = settings
         self.languageServers = languageServers ?? LanguageServerController()
         self.secrets = secrets
-        self.aiProvider = aiProvider
         self.toolPermissions = toolPermissions ?? ToolPermissionController()
+        self.agentOrchestrator = AgentOrchestrator()
         self.languageDetector = languageDetector
         self.syntaxHighlighter = syntaxHighlighter
         ThemeCatalog.ensureUserDirectoryExists()
@@ -55,6 +56,20 @@ final class AppComposition: ObservableObject {
             self.recovery = (try? FileRecoveryStore()) ?? MemoryRecoveryStore()
         }
         editorSettings = EditorSettingsController(store: settings)
+        if let aiProvider {
+            self.aiProvider = aiProvider
+        } else {
+            let http = HTTPOpenAICompatibleProvider(secrets: secrets)
+            let settingsController = editorSettings
+            self.aiProvider = RoutedAIProvider(
+                mock: MockAIProvider(),
+                http: http,
+                secrets: secrets,
+                prefersHTTP: {
+                    settingsController.settings.enableHTTPProvider
+                }
+            )
+        }
         let stored = settings.string(for: AppearanceController.preferenceKey)
         let preference = stored.flatMap(AppearancePreference.init(rawValue:)) ?? .system
         appearance = AppearanceController(

@@ -23,6 +23,7 @@ final class NibDocument: NSDocument {
     nonisolated(unsafe) private var lspIsOpen = false
     nonisolated(unsafe) private var lspSyncTask: Task<Void, Never>?
     nonisolated(unsafe) private var lspFeatureTask: Task<Void, Never>?
+    nonisolated(unsafe) private var ghostTask: Task<Void, Never>?
     nonisolated(unsafe) private var cancellables = Set<AnyCancellable>()
 
     override init() {
@@ -72,6 +73,24 @@ final class NibDocument: NSDocument {
             }
             session.onApplyAIEdit = { [weak self] in
                 self?.applyAIEdit()
+            }
+            session.onRequestInlineSuggestion = { [weak self] in
+                self?.requestInlineSuggestion()
+            }
+            session.onAcceptGhost = { [weak self] mode in
+                self?.acceptGhost(mode)
+            }
+            session.onDismissGhost = { [weak self] in
+                self?.session.ghostSuggestion = nil
+            }
+            session.onRunAgentPlan = { [weak self] in
+                self?.beginAgentPlan()
+            }
+            session.onConfirmAgentPlan = { [weak self] in
+                self?.confirmAgentPlan()
+            }
+            session.onApplyAgentEdit = { [weak self] in
+                self?.applyAgentEdit()
             }
             self.session = session
             self.registerCommands()
@@ -207,6 +226,7 @@ final class NibDocument: NSDocument {
             self.syncWindowChrome()
             self.scheduleRecoveryWrite()
             self.scheduleLanguageAutoDetect()
+            self.scheduleInlineSuggestion()
             // Keep underline ranges aligned with the live buffer.
             if self.session.diagnostics.isEmpty == false {
                 self.session.applyDiagnostics(self.session.diagnostics)
@@ -324,6 +344,53 @@ final class NibDocument: NSDocument {
             )
         ) { [weak self] in
             self?.beginAIAction(.document)
+        }
+        commands.register(
+            EditorCommand(
+                id: BuiltInCommandID.fixDiagnostic,
+                title: "Fix Diagnostic",
+                keywords: ["ai", "fix", "diagnostic", "error"]
+            )
+        ) { [weak self] in
+            self?.beginAIAction(.fixDiagnostic)
+        }
+        commands.register(
+            EditorCommand(
+                id: BuiltInCommandID.askAboutFile,
+                title: "Ask About This File",
+                keywords: ["ai", "file", "ask", "overview"]
+            )
+        ) { [weak self] in
+            self?.beginAIAction(.askAboutFile)
+        }
+        commands.register(
+            EditorCommand(
+                id: BuiltInCommandID.generateSelection,
+                title: "Generate from Selection",
+                keywords: ["ai", "generate", "continue"]
+            )
+        ) { [weak self] in
+            self?.beginAIAction(.generate)
+        }
+        commands.register(
+            EditorCommand(
+                id: BuiltInCommandID.inlineSuggest,
+                title: "Inline Suggestion",
+                keywords: ["ai", "ghost", "complete", "inline"],
+                shortcutLabel: "⌥]"
+            )
+        ) { [weak self] in
+            self?.requestInlineSuggestion()
+        }
+        commands.register(
+            EditorCommand(
+                id: BuiltInCommandID.runAgent,
+                title: "Run Agent on Selection",
+                keywords: ["ai", "agent", "plan", "tools"],
+                shortcutLabel: "⇧⌘A"
+            )
+        ) { [weak self] in
+            self?.beginAgentPlan()
         }
         for language in LanguageDescriptor.priorityLanguages + [.plainText] {
             let id = "lang.\(language.id)"
@@ -757,6 +824,15 @@ final class NibDocument: NSDocument {
 
     @MainActor
     private func beginAIAction(_ kind: AIActionKind) {
+        if kind == .askAboutFile {
+            beginAskAboutFile()
+            return
+        }
+        if kind == .fixDiagnostic {
+            beginFixDiagnostic()
+            return
+        }
+
         let selection = selectedText()
         let range = session.selectionUTF16
         guard selection.isEmpty == false, range.count > 0 else {
@@ -769,26 +845,127 @@ final class NibDocument: NSDocument {
             session.isAIResultPresented = true
             return
         }
-        let disclosure = ContextDisclosure(
-            filePath: fileURL?.path,
-            selectedCharacterCount: selection.count,
-            includesDiagnostics: false,
-            includesRepositoryContext: false,
-            includesCommandOutput: false
+        presentAIDisclosure(
+            kind: kind,
+            selection: selection,
+            selectionRange: range,
+            disclosure: ContextDisclosure(
+                filePath: fileURL?.path,
+                selectedCharacterCount: selection.count,
+                includesDiagnostics: false,
+                includesRepositoryContext: false,
+                includesCommandOutput: false
+            ),
+            diagnosticsText: nil,
+            fileText: nil
         )
+    }
+
+    @MainActor
+    private func beginAskAboutFile() {
+        let text = session.text
+        guard text.isEmpty == false else {
+            session.aiResult = AISessionResult(
+                title: "Ask About This File",
+                text: "The file is empty.",
+                proposedEdit: nil,
+                selectionRange: 0..<0
+            )
+            session.isAIResultPresented = true
+            return
+        }
+        let range = 0..<(text as NSString).length
+        presentAIDisclosure(
+            kind: .askAboutFile,
+            selection: String(text.prefix(2_000)),
+            selectionRange: range,
+            disclosure: ContextDisclosure(
+                filePath: fileURL?.path,
+                selectedCharacterCount: text.count,
+                includesDiagnostics: session.diagnostics.isEmpty == false,
+                includesRepositoryContext: false,
+                includesCommandOutput: false
+            ),
+            diagnosticsText: diagnosticsSummary(),
+            fileText: text
+        )
+    }
+
+    @MainActor
+    private func beginFixDiagnostic() {
+        guard let diagnostic = diagnosticNearCaret() else {
+            session.aiResult = AISessionResult(
+                title: "Fix Diagnostic",
+                text: "No diagnostic under the caret. Open a file with LSP diagnostics first.",
+                proposedEdit: nil,
+                selectionRange: 0..<0
+            )
+            session.isAIResultPresented = true
+            return
+        }
+        let range: Range<Int>
+        let selection: String
+        if let utf16 = diagnostic.utf16Range, utf16.count > 0 {
+            range = utf16
+            selection = selectedText(in: utf16)
+        } else {
+            range = session.selectionUTF16
+            selection = selectedText()
+        }
+        guard selection.isEmpty == false else {
+            session.aiResult = AISessionResult(
+                title: "Fix Diagnostic",
+                text: "Could not resolve text for the diagnostic. Select the problematic span and retry.",
+                proposedEdit: nil,
+                selectionRange: 0..<0
+            )
+            session.isAIResultPresented = true
+            return
+        }
+        let summary = "L\(diagnostic.line):\(diagnostic.column) \(diagnostic.severity.rawValue): \(diagnostic.message)"
+        presentAIDisclosure(
+            kind: .fixDiagnostic,
+            selection: selection,
+            selectionRange: range,
+            disclosure: ContextDisclosure(
+                filePath: fileURL?.path,
+                selectedCharacterCount: selection.count,
+                includesDiagnostics: true,
+                includesRepositoryContext: false,
+                includesCommandOutput: false
+            ),
+            diagnosticsText: summary,
+            fileText: nil
+        )
+    }
+
+    @MainActor
+    private func presentAIDisclosure(
+        kind: AIActionKind,
+        selection: String,
+        selectionRange: Range<Int>,
+        disclosure: ContextDisclosure,
+        diagnosticsText: String?,
+        fileText: String?
+    ) {
         session.isPalettePresented = false
         session.isGoToLinePresented = false
         session.isFindPresented = false
         session.isCompletionPresented = false
         session.isAIResultPresented = false
+        session.isAgentPlanPresented = false
         session.hoverText = nil
         session.diagnosticHover = nil
         session.aiResult = nil
+        session.agentPlan = nil
+        session.ghostSuggestion = nil
         session.aiPendingAction = AIPendingAction(
             kind: kind,
             selection: selection,
-            selectionRange: range,
-            disclosure: disclosure
+            selectionRange: selectionRange,
+            disclosure: disclosure,
+            diagnosticsText: diagnosticsText,
+            fileText: fileText
         )
         session.isAIDisclosurePresented = true
     }
@@ -800,7 +977,8 @@ final class NibDocument: NSDocument {
         let request = AIRequest(
             instruction: pending.instruction,
             selectedText: pending.selection,
-            fileText: nil,
+            fileText: pending.fileText,
+            diagnosticsText: pending.diagnosticsText,
             disclosure: pending.disclosure
         )
         Task { @MainActor [weak self] in
@@ -810,11 +988,24 @@ final class NibDocument: NSDocument {
                     .sendToProvider,
                     allowPromptGrant: true
                 )
+                if pending.disclosure.includesDiagnostics {
+                    try AppComposition.shared.toolPermissions.require(
+                        .readDiagnostics,
+                        allowPromptGrant: true
+                    )
+                }
+                if pending.fileText != nil {
+                    try AppComposition.shared.toolPermissions.require(
+                        .readCurrentFile,
+                        allowPromptGrant: true
+                    )
+                }
                 let response = try await AppComposition.shared.aiProvider.complete(request)
                 self.session.aiResult = AISessionResult(
                     title: pending.title,
                     text: response.text,
                     proposedEdit: response.proposedEdit,
+                    originalText: response.proposedEdit == nil ? nil : pending.selection,
                     selectionRange: pending.selectionRange
                 )
                 self.session.isAIResultPresented = true
@@ -828,10 +1019,19 @@ final class NibDocument: NSDocument {
                 )
                 self.session.isAIResultPresented = true
                 self.session.aiPendingAction = nil
+            } catch AIProviderError.missingAPIKey {
+                self.session.aiResult = AISessionResult(
+                    title: pending.title,
+                    text: "HTTP provider is enabled but no API key is stored. Add one in Settings or disable HTTP provider.",
+                    proposedEdit: nil,
+                    selectionRange: pending.selectionRange
+                )
+                self.session.isAIResultPresented = true
+                self.session.aiPendingAction = nil
             } catch AIProviderError.permissionDenied {
                 self.session.aiResult = AISessionResult(
                     title: pending.title,
-                    text: "Permission denied: send to provider.",
+                    text: "Permission denied.",
                     proposedEdit: nil,
                     selectionRange: pending.selectionRange
                 )
@@ -876,6 +1076,7 @@ final class NibDocument: NSDocument {
                 title: result.title,
                 text: "Permission denied: apply edits.",
                 proposedEdit: proposed,
+                originalText: result.originalText,
                 selectionRange: result.selectionRange
             )
         } catch {
@@ -883,8 +1084,175 @@ final class NibDocument: NSDocument {
                 title: result.title,
                 text: error.localizedDescription,
                 proposedEdit: proposed,
+                originalText: result.originalText,
                 selectionRange: result.selectionRange
             )
+        }
+    }
+
+    @MainActor
+    private func requestInlineSuggestion() {
+        guard session.settings.enableInlineGhostText else { return }
+        guard session.selectionUTF16.count == 0 else {
+            session.ghostSuggestion = nil
+            return
+        }
+        let caret = session.caretUTF16
+        let ns = session.text as NSString
+        let clamped = min(max(caret, 0), ns.length)
+        let prefix = ns.substring(to: clamped)
+        let suffix = ns.substring(from: clamped)
+        let disclosure = ContextDisclosure(
+            filePath: fileURL?.path,
+            selectedCharacterCount: 0,
+            includesDiagnostics: false,
+            includesRepositoryContext: false,
+            includesCommandOutput: false
+        )
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            do {
+                try AppComposition.shared.toolPermissions.require(
+                    .sendToProvider,
+                    allowPromptGrant: true
+                )
+                let suggestion = try await AppComposition.shared.aiProvider.inlineComplete(
+                    InlineCompletionRequest(
+                        prefix: prefix,
+                        suffix: suffix,
+                        languageID: self.session.language.id,
+                        disclosure: disclosure
+                    )
+                )
+                guard self.session.caretUTF16 == clamped else { return }
+                self.session.ghostSuggestion = suggestion.map {
+                    GhostSuggestion(text: $0.text, anchorUTF16: clamped)
+                }
+            } catch {
+                self.session.ghostSuggestion = nil
+            }
+        }
+    }
+
+    @MainActor
+    private func scheduleInlineSuggestion() {
+        ghostTask?.cancel()
+        session.ghostSuggestion = nil
+        guard session.settings.enableInlineGhostText else { return }
+        ghostTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: 450_000_000)
+            guard Task.isCancelled == false else { return }
+            self?.requestInlineSuggestion()
+        }
+    }
+
+    @MainActor
+    private func acceptGhost(_ mode: GhostAcceptMode) {
+        guard let ghost = session.ghostSuggestion else { return }
+        let insert = mode == .word ? ghost.firstWord : ghost.text
+        guard insert.isEmpty == false else {
+            session.ghostSuggestion = nil
+            return
+        }
+        let range = ghost.anchorUTF16..<ghost.anchorUTF16
+        do {
+            let newText = try TextPatchApplier.replaceUTF16Range(
+                in: session.text,
+                range: range,
+                with: insert
+            )
+            session.applyFileText(newText)
+            handleTextEdit(newText)
+            let inserted = (insert as NSString).length
+            session.pendingCaretUTF16 = ghost.anchorUTF16 + inserted
+            if mode == .word, insert != ghost.text {
+                let remainder = String(ghost.text.dropFirst(insert.count))
+                session.ghostSuggestion = GhostSuggestion(
+                    text: remainder,
+                    anchorUTF16: ghost.anchorUTF16 + inserted
+                )
+            } else {
+                session.ghostSuggestion = nil
+            }
+        } catch {
+            session.ghostSuggestion = nil
+        }
+    }
+
+    @MainActor
+    private func beginAgentPlan() {
+        let selection = selectedText()
+        let range = session.selectionUTF16
+        guard selection.isEmpty == false, range.count > 0 else {
+            session.aiResult = AISessionResult(
+                title: "Run Agent",
+                text: "Select some text first.",
+                proposedEdit: nil,
+                selectionRange: 0..<0
+            )
+            session.isAIResultPresented = true
+            return
+        }
+        session.dismissTransientOverlays()
+        session.agentPlan = AppComposition.shared.agentOrchestrator.makeImproveSelectionPlan(
+            selection: selection,
+            selectionRange: range,
+            diagnostics: session.diagnostics,
+            filePath: fileURL?.path
+        )
+        session.isAgentPlanPresented = true
+    }
+
+    @MainActor
+    private func confirmAgentPlan() {
+        guard let plan = session.agentPlan else { return }
+        let selection = selectedText(in: plan.selectionRange)
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            let updated = await AppComposition.shared.agentOrchestrator.run(
+                plan: plan,
+                selection: selection,
+                diagnostics: self.session.diagnostics,
+                filePath: self.fileURL?.path,
+                permissions: AppComposition.shared.toolPermissions,
+                provider: AppComposition.shared.aiProvider,
+                allowPromptGrant: true
+            )
+            self.session.agentPlan = updated
+            self.session.isAgentPlanPresented = true
+        }
+    }
+
+    @MainActor
+    private func applyAgentEdit() {
+        guard let plan = session.agentPlan, let proposed = plan.proposedEdit else { return }
+        do {
+            try AppComposition.shared.toolPermissions.require(
+                .applyEdits,
+                allowPromptGrant: true
+            )
+            let original = selectedText(in: plan.selectionRange)
+            let newText = try TextPatchApplier.replaceUTF16Range(
+                in: session.text,
+                range: plan.selectionRange,
+                with: proposed
+            )
+            session.applyFileText(newText)
+            handleTextEdit(newText)
+            let inserted = (proposed as NSString).length
+            session.pendingCaretUTF16 = plan.selectionRange.lowerBound + inserted
+            session.isAgentPlanPresented = false
+            session.agentPlan = nil
+            // Surface a final diff confirmation history entry via result overlay optional — keep simple.
+            _ = original
+        } catch {
+            var failed = plan
+            if let index = failed.steps.lastIndex(where: { $0.toolCall?.toolName == "apply_patch" }) {
+                failed.steps[index].status = .failed
+                failed.steps[index].detail = error.localizedDescription
+            }
+            failed.summary = error.localizedDescription
+            session.agentPlan = failed
         }
     }
 
@@ -894,18 +1262,43 @@ final class NibDocument: NSDocument {
         case .explain: return "Explain Selection"
         case .edit: return "Edit Selection"
         case .document: return "Document Selection"
+        case .fixDiagnostic: return "Fix Diagnostic"
+        case .askAboutFile: return "Ask About This File"
+        case .generate: return "Generate from Selection"
         }
     }
 
     @MainActor
     private func selectedText() -> String {
-        let range = session.selectionUTF16
+        selectedText(in: session.selectionUTF16)
+    }
+
+    @MainActor
+    private func selectedText(in range: Range<Int>) -> String {
         guard range.count > 0 else { return "" }
         let ns = session.text as NSString
         let location = min(max(range.lowerBound, 0), ns.length)
         let length = min(max(range.count, 0), ns.length - location)
         guard length > 0 else { return "" }
         return ns.substring(with: NSRange(location: location, length: length))
+    }
+
+    @MainActor
+    private func diagnosticNearCaret() -> Diagnostic? {
+        let caret = session.caretUTF16
+        if let match = session.diagnostics.first(where: { $0.utf16Range?.contains(caret) == true }) {
+            return match
+        }
+        return session.diagnostics.first
+    }
+
+    @MainActor
+    private func diagnosticsSummary() -> String? {
+        guard session.diagnostics.isEmpty == false else { return nil }
+        return session.diagnostics
+            .prefix(20)
+            .map { "L\($0.line):\($0.column) \($0.severity.rawValue): \($0.message)" }
+            .joined(separator: "\n")
     }
 
     // NSDocument I/O overrides are nonisolated; keep these helpers callable there.

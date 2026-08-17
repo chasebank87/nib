@@ -39,11 +39,14 @@ See [PRODUCT.md](PRODUCT.md) for vision, non-goals, and MVP acceptance criteria.
 - Demo language server (FakeLSP): document sync, diagnostics, completions (`⌃Space`), hover
 - Real LSP over stdio with PATH auto-detection (Pyright, TypeScript LS, SourceKit, ZLS, …)
 - Diagnostics underlined in-editor with hover details; completions (`⌃Space`); hover (`⌥⌘.`)
-- Mock AI with disclosure sheet: Explain (`⇧⌘E`), Edit (`⇧⌘R`), Document Selection
-- Keychain API key storage in Settings; proposed edits Apply/Reject
+- Mock AI with disclosure sheet: Explain (`⇧⌘E`), Edit (`⇧⌘R`), Document / Generate / Fix Diagnostic / Ask About File
+- Inline ghost text (`⌥]` or idle): Tab accept, Esc dismiss, ⌥Tab word
+- Optional HTTP OpenAI-compatible provider (Settings toggle + Keychain key)
+- Agent plan on selection (`⇧⌘A`) with permission-gated tools and Apply
+- Keychain API key storage in Settings; proposed edits with line-diff Apply/Reject
 - Zig core linked through a C ABI, with a proof-of-integration API and tests
 
-**Designed from the start, implemented in later phases:** HTTP AI providers, ghost text, full agent orchestrator, Git-aware status. The full map is in [ROADMAP.md](ROADMAP.md) and [BACKLOG.md](BACKLOG.md).
+**Designed from the start, implemented in later phases:** workspace search / approved shell / Git tools, Zig buffer+search, release polish. The full map is in [ROADMAP.md](ROADMAP.md) and [BACKLOG.md](BACKLOG.md).
 
 ## Architecture overview
 
@@ -51,7 +54,7 @@ See [PRODUCT.md](PRODUCT.md) for vision, non-goals, and MVP acceptance criteria.
 App        windowing, NSDocument, menus, composition root
 UI         editor shell, TextKit surface, overlays, palette
 Domain     documents, themes, commands, language and AI models
-Services   persistence, settings, future LSP / Git / AI adapters
+Services   persistence, settings, LSP, AI adapters, secrets
 CoreBridge safe Swift wrappers around the Zig C ABI
 ZigCore    buffer/search/diff primitives (UTF-8 validation in this slice)
 ```

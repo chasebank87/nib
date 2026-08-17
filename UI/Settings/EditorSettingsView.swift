@@ -45,6 +45,8 @@ public struct EditorSettingsView: View {
             Toggle("Language server", isOn: $settings.enableLanguageServer)
             Toggle("Demo language server", isOn: $settings.enableDemoLanguageServer)
                 .disabled(settings.enableLanguageServer == false)
+            Toggle("HTTP AI provider (when key stored)", isOn: $settings.enableHTTPProvider)
+            Toggle("Inline ghost text", isOn: $settings.enableInlineGhostText)
             Picker("Theme", selection: Binding(
                 get: { settings.themeID ?? "" },
                 set: { settings.themeID = $0.isEmpty ? nil : $0 }
@@ -73,7 +75,7 @@ public struct EditorSettingsView: View {
             }
         }
         .formStyle(.grouped)
-        .frame(width: 440, height: 620)
+        .frame(width: 440, height: 680)
         .onAppear(perform: refreshAPIKeyStatus)
         .onChange(of: settings) { _, newValue in
             let sanitized = newValue.sanitized()

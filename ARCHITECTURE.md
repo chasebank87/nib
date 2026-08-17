@@ -29,8 +29,8 @@ flowchart TB
     DocumentCodec
     SettingsStore
     Appearance
-    FutureLSP[LSP client later]
-    FutureAI[AI adapters later]
+    FutureLSP[LSP client]
+    FutureAI[AI adapters]
     FutureGit[Git context later]
   end
   subgraph bridgeLayer [CoreBridge]

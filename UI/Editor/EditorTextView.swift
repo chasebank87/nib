@@ -9,6 +9,7 @@ public struct EditorTextView: NSViewRepresentable {
     @Binding var pendingCaretUTF16: Int?
     @Binding var pendingSelectionUTF16: Range<Int>?
     @Binding var diagnosticHover: DiagnosticHover?
+    var ghostSuggestion: GhostSuggestion?
     var theme: Theme
     var settings: EditorSettings
     var capabilities: DocumentCapabilities
@@ -17,6 +18,9 @@ public struct EditorTextView: NSViewRepresentable {
     var diagnostics: [Diagnostic]
     var isEditable: Bool
     var wrapLines: Bool
+    var onAcceptGhost: (GhostAcceptMode) -> Void
+    var onDismissGhost: () -> Void
+    var onCaretMoved: () -> Void
 
     public init(
         text: Binding<String>,
@@ -25,6 +29,7 @@ public struct EditorTextView: NSViewRepresentable {
         pendingCaretUTF16: Binding<Int?>,
         pendingSelectionUTF16: Binding<Range<Int>?> = .constant(nil),
         diagnosticHover: Binding<DiagnosticHover?> = .constant(nil),
+        ghostSuggestion: GhostSuggestion? = nil,
         theme: Theme,
         settings: EditorSettings,
         capabilities: DocumentCapabilities = .full,
@@ -32,7 +37,10 @@ public struct EditorTextView: NSViewRepresentable {
         findMatches: [Range<Int>] = [],
         diagnostics: [Diagnostic] = [],
         isEditable: Bool = true,
-        wrapLines: Bool = false
+        wrapLines: Bool = false,
+        onAcceptGhost: @escaping (GhostAcceptMode) -> Void = { _ in },
+        onDismissGhost: @escaping () -> Void = {},
+        onCaretMoved: @escaping () -> Void = {}
     ) {
         _text = text
         _caretUTF16 = caretUTF16
@@ -40,6 +48,7 @@ public struct EditorTextView: NSViewRepresentable {
         _pendingCaretUTF16 = pendingCaretUTF16
         _pendingSelectionUTF16 = pendingSelectionUTF16
         _diagnosticHover = diagnosticHover
+        self.ghostSuggestion = ghostSuggestion
         self.theme = theme
         self.settings = settings
         self.capabilities = capabilities
@@ -48,6 +57,9 @@ public struct EditorTextView: NSViewRepresentable {
         self.diagnostics = diagnostics
         self.isEditable = isEditable
         self.wrapLines = wrapLines
+        self.onAcceptGhost = onAcceptGhost
+        self.onDismissGhost = onDismissGhost
+        self.onCaretMoved = onCaretMoved
     }
 
     public func makeCoordinator() -> Coordinator {
@@ -55,7 +67,8 @@ public struct EditorTextView: NSViewRepresentable {
             text: $text,
             caretUTF16: $caretUTF16,
             selectionUTF16: $selectionUTF16,
-            diagnosticHover: $diagnosticHover
+            diagnosticHover: $diagnosticHover,
+            onCaretMoved: onCaretMoved
         )
     }
 
@@ -100,6 +113,10 @@ public struct EditorTextView: NSViewRepresentable {
         scrollView.verticalRulerView = ruler
         context.coordinator.ruler = ruler
         textView.diagnostics = diagnostics
+        textView.ghostSuggestion = ghostSuggestion
+        textView.ghostColor = theme.nsColor(.aiSuggestion)
+        textView.onAcceptGhost = onAcceptGhost
+        textView.onDismissGhost = onDismissGhost
         textView.onDiagnosticHover = { hover in
             context.coordinator.diagnosticHover.wrappedValue = hover
         }
@@ -115,8 +132,13 @@ public struct EditorTextView: NSViewRepresentable {
         context.coordinator.caretUTF16 = $caretUTF16
         context.coordinator.selectionUTF16 = $selectionUTF16
         context.coordinator.diagnosticHover = $diagnosticHover
+        context.coordinator.onCaretMoved = onCaretMoved
         context.coordinator.ruler?.theme = theme
         textView.diagnostics = diagnostics
+        textView.ghostSuggestion = ghostSuggestion
+        textView.ghostColor = theme.nsColor(.aiSuggestion)
+        textView.onAcceptGhost = onAcceptGhost
+        textView.onDismissGhost = onDismissGhost
         textView.onDiagnosticHover = { hover in
             context.coordinator.diagnosticHover.wrappedValue = hover
         }
@@ -136,6 +158,7 @@ public struct EditorTextView: NSViewRepresentable {
             textChanged = true
         }
         applySyntax(to: textView, force: textChanged, coordinator: context.coordinator)
+        textView.needsDisplay = true
         context.coordinator.ruler?.needsDisplay = true
 
         if let offset = pendingCaretUTF16 {
@@ -318,6 +341,7 @@ public struct EditorTextView: NSViewRepresentable {
         var caretUTF16: Binding<Int>
         var selectionUTF16: Binding<Range<Int>>
         var diagnosticHover: Binding<DiagnosticHover?>
+        var onCaretMoved: () -> Void
         var ruler: LineNumberRulerView?
         var lastPaintSignature: SyntaxPaintSignature?
         var isApplyingExternalText = false
@@ -326,12 +350,14 @@ public struct EditorTextView: NSViewRepresentable {
             text: Binding<String>,
             caretUTF16: Binding<Int>,
             selectionUTF16: Binding<Range<Int>>,
-            diagnosticHover: Binding<DiagnosticHover?>
+            diagnosticHover: Binding<DiagnosticHover?>,
+            onCaretMoved: @escaping () -> Void
         ) {
             self.text = text
             self.caretUTF16 = caretUTF16
             self.selectionUTF16 = selectionUTF16
             self.diagnosticHover = diagnosticHover
+            self.onCaretMoved = onCaretMoved
         }
 
         public func textDidChange(_ notification: Notification) {
@@ -353,6 +379,7 @@ public struct EditorTextView: NSViewRepresentable {
             let range = textView.selectedRange()
             caretUTF16.wrappedValue = range.location
             selectionUTF16.wrappedValue = range.location..<(range.location + range.length)
+            onCaretMoved()
         }
     }
 }
@@ -373,7 +400,11 @@ final class NibTextView: NSTextView {
     var nibInsertSpaces = true
     var nibTabWidth = 4
     var diagnostics: [Diagnostic] = []
+    var ghostSuggestion: GhostSuggestion?
+    var ghostColor: NSColor = .secondaryLabelColor
     var onDiagnosticHover: ((DiagnosticHover?) -> Void)?
+    var onAcceptGhost: ((GhostAcceptMode) -> Void)?
+    var onDismissGhost: (() -> Void)?
 
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
@@ -388,6 +419,36 @@ final class NibTextView: NSTextView {
             userInfo: nil
         )
         addTrackingArea(area)
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        super.draw(dirtyRect)
+        drawGhostSuggestion()
+    }
+
+    private func drawGhostSuggestion() {
+        guard let ghost = ghostSuggestion,
+              ghost.text.isEmpty == false,
+              let layoutManager,
+              let textContainer
+        else { return }
+        let length = (string as NSString).length
+        let anchor = min(max(ghost.anchorUTF16, 0), length)
+        guard selectedRange().location == anchor, selectedRange().length == 0 else { return }
+
+        let glyphIndex = layoutManager.glyphIndexForCharacter(at: anchor)
+        var fraction: CGFloat = 0
+        let rect = layoutManager.boundingRect(
+            forGlyphRange: NSRange(location: glyphIndex, length: 0),
+            in: textContainer
+        )
+        let origin = textContainerOrigin
+        let point = NSPoint(x: origin.x + rect.origin.x, y: origin.y + rect.origin.y)
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: font ?? .monospacedSystemFont(ofSize: 13, weight: .regular),
+            .foregroundColor: ghostColor.withAlphaComponent(0.55),
+        ]
+        (ghost.text as NSString).draw(at: point, withAttributes: attributes)
     }
 
     override func mouseMoved(with event: NSEvent) {
@@ -428,12 +489,36 @@ final class NibTextView: NSTextView {
     }
 
     override func insertTab(_ sender: Any?) {
+        if ghostSuggestion != nil {
+            onAcceptGhost?(.all)
+            return
+        }
         if nibInsertSpaces {
             let spaces = String(repeating: " ", count: max(nibTabWidth, 1))
             insertText(spaces, replacementRange: selectedRange())
         } else {
             super.insertTab(sender)
         }
+    }
+
+    override func cancelOperation(_ sender: Any?) {
+        if ghostSuggestion != nil {
+            onDismissGhost?()
+            return
+        }
+        super.cancelOperation(sender)
+    }
+
+    override func keyDown(with event: NSEvent) {
+        // Option-Tab → accept first word of ghost text.
+        if ghostSuggestion != nil,
+           event.charactersIgnoringModifiers == "\t",
+           event.modifierFlags.contains(.option)
+        {
+            onAcceptGhost?(.word)
+            return
+        }
+        super.keyDown(with: event)
     }
 }
 
