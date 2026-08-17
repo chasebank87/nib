@@ -32,7 +32,9 @@ public struct EditorSettingsView: View {
             Toggle("Line numbers", isOn: $settings.showLineNumbers)
             Toggle("Highlight current line", isOn: $settings.highlightCurrentLine)
             Toggle("Indent guides", isOn: $settings.showIndentGuides)
+            Toggle("Language server", isOn: $settings.enableLanguageServer)
             Toggle("Demo language server", isOn: $settings.enableDemoLanguageServer)
+                .disabled(settings.enableLanguageServer == false)
             Picker("Theme", selection: Binding(
                 get: { settings.themeID ?? "" },
                 set: { settings.themeID = $0.isEmpty ? nil : $0 }
@@ -44,7 +46,7 @@ public struct EditorSettingsView: View {
             }
         }
         .formStyle(.grouped)
-        .frame(width: 420, height: 500)
+        .frame(width: 420, height: 520)
         .onChange(of: settings) { _, newValue in
             let sanitized = newValue.sanitized()
             if sanitized != newValue {

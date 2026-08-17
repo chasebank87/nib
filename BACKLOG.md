@@ -138,7 +138,7 @@ Independently testable tickets. Status: `done` means this repository already inc
 
 ## NIB-011 — LSP document lifecycle
 
-- **Status:** done (demo FakeLSP over in-process pipes; stdio-shaped JSON-RPC client)
+- **Status:** done (stdio JSON-RPC client; PATH auto-detect + demo FakeLSP)
 - **Goal:** A correct client before feature completeness.
 - **Scope:** stdio JSON-RPC, start/stop, `initialize`, `didOpen`/`didChange`/`didClose`, request cancellation, crash restart policy. No completion UI required in this ticket.
 - **Acceptance:** Fake server test process receives open/change/close. Killing the server does not crash nib. Cancellation is observable in the fake.
@@ -150,7 +150,7 @@ Independently testable tickets. Status: `done` means this repository already inc
 
 ## NIB-012 — LSP completion, diagnostics, and hover
 
-- **Status:** done (demo server + overlays; real server install UI follows)
+- **Status:** done (real/demo servers + overlays; dedicated install UI follows)
 - **Goal:** First useful IDE loop on the current file.
 - **Scope:** Map protocol types to Domain; overlay UI; diagnostic gutter marks (simple).
 - **Acceptance:** Fake server can inject a diagnostic and a completion item; accepting a completion edits the document via undo.

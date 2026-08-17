@@ -524,15 +524,6 @@ final class NibDocument: NSDocument {
                 self?.session.diagnostics = diagnostics
             }
             .store(in: &cancellables)
-        servers.$generation
-            .dropFirst()
-            .receive(on: RunLoop.main)
-            .sink { [weak self] _ in
-                Task { @MainActor in
-                    await self?.syncLanguageServerDocument(forceReopen: true)
-                }
-            }
-            .store(in: &cancellables)
         NotificationCenter.default.publisher(for: .nibEditorSettingsDidChange)
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in
@@ -561,7 +552,9 @@ final class NibDocument: NSDocument {
             session.diagnostics = []
             return
         }
-        let client = AppComposition.shared.languageServer
+        let servers = AppComposition.shared.languageServers
+        await servers.activate(for: session.language.id)
+        let client = servers.client
         let text = session.text
         if forceReopen, lspIsOpen {
             await client.closeDocument(lspDocumentIdentity())

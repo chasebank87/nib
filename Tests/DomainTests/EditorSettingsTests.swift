@@ -26,13 +26,15 @@ struct EditorSettingsTests {
         settings.fontSize = 15
         settings.wrapLines = true
         settings.tabWidth = 2
-        settings.enableDemoLanguageServer = false
+        settings.enableLanguageServer = false
+        settings.enableDemoLanguageServer = true
         store.set(string: settings.encodedJSON(), for: EditorSettings.storageKey)
         let loaded = EditorSettings.decoded(from: store.string(for: EditorSettings.storageKey))
         #expect(loaded.fontSize == 15)
         #expect(loaded.wrapLines)
         #expect(loaded.tabWidth == 2)
-        #expect(loaded.enableDemoLanguageServer == false)
+        #expect(loaded.enableLanguageServer == false)
+        #expect(loaded.enableDemoLanguageServer == true)
     }
 }
 

@@ -86,7 +86,10 @@ public protocol LanguageServerClienting: Sendable {
 }
 
 public protocol LanguageServerInstalling: Sendable {
+    /// First executable found on PATH for this language, if any.
     func installedServer(for languageID: String) -> URL?
+    /// Full launch configuration (executable + args) when a server is available.
+    func launchConfiguration(for languageID: String) -> LanguageServerLaunch?
 }
 
 public protocol DiagnosticPublishing: Sendable {

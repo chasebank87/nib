@@ -52,12 +52,12 @@ Phases are capability slices, not calendar estimates. Each phase should leave `m
 
 **Goal.** IDE power on the current file.
 
-- Server install/config UI (palette/settings), stdio client, document lifecycle — **partial** (demo FakeLSP + settings toggle; real server install UI follows)
+- Server install/config UI (palette/settings), stdio client, document lifecycle — **partial** (PATH auto-detect + demo FakeLSP + settings toggles; dedicated install UI follows)
 - Incremental sync, cancellation, sensible timeouts — **done** (full-document sync + cancel; timeouts follow)
 - Diagnostics, completion, hover, definition/declaration, references, rename — **partial** (diagnostics strip, completion overlay, hover; navigation/rename follow)
 - Code actions, document symbols, formatting (on demand and optional on save)
 - Semantic tokens when the server provides them
-- Error states: server missing, crashed, or slow — editor stays usable — **partial** (unconfigured / demo off leaves editing intact)
+- Error states: server missing, crashed, or slow — editor stays usable — **done** (missing server shows status; editing continues)
 
 **Exit.** TypeScript or Python (one well-configured server) can complete, jump, and show diagnostics on the open file.
 

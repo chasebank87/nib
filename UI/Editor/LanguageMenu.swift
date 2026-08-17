@@ -41,10 +41,10 @@ public struct LanguageMenu: View {
             }
         } label: {
             HStack(spacing: 4) {
-                Text(language.name)
-                    .font(.system(size: 11, weight: .medium))
                 Image(systemName: "chevron.down")
                     .font(.system(size: 8, weight: .semibold))
+                Text(language.name)
+                    .font(.system(size: 11, weight: .medium))
             }
             .foregroundStyle(theme.color(.gutterForeground))
             .padding(.horizontal, 6)
@@ -52,7 +52,8 @@ public struct LanguageMenu: View {
             .contentShape(Rectangle())
         }
         .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
         .fixedSize()
-        .help("Set language for highlighting")
+        .help("Set language for highlighting and LSP")
     }
 }

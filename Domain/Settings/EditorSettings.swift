@@ -12,6 +12,9 @@ public struct EditorSettings: Equatable, Sendable, Codable {
     public var highlightCurrentLine: Bool
     public var showIndentGuides: Bool
     public var themeID: String?
+    /// Master switch for language servers (real auto-detect or demo).
+    public var enableLanguageServer: Bool
+    /// When true (and language server enabled), use the built-in FakeLSP instead of PATH servers.
     public var enableDemoLanguageServer: Bool
 
     public init(
@@ -26,7 +29,8 @@ public struct EditorSettings: Equatable, Sendable, Codable {
         highlightCurrentLine: Bool = true,
         showIndentGuides: Bool = false,
         themeID: String? = nil,
-        enableDemoLanguageServer: Bool = true
+        enableLanguageServer: Bool = true,
+        enableDemoLanguageServer: Bool = false
     ) {
         self.fontName = fontName
         self.fontSize = fontSize
@@ -39,6 +43,7 @@ public struct EditorSettings: Equatable, Sendable, Codable {
         self.highlightCurrentLine = highlightCurrentLine
         self.showIndentGuides = showIndentGuides
         self.themeID = themeID
+        self.enableLanguageServer = enableLanguageServer
         self.enableDemoLanguageServer = enableDemoLanguageServer
     }
 
@@ -69,6 +74,8 @@ public struct EditorSettings: Equatable, Sendable, Codable {
         showIndentGuides = try container.decodeIfPresent(Bool.self, forKey: .showIndentGuides)
             ?? Self.default.showIndentGuides
         themeID = try container.decodeIfPresent(String.self, forKey: .themeID)
+        enableLanguageServer = try container.decodeIfPresent(Bool.self, forKey: .enableLanguageServer)
+            ?? Self.default.enableLanguageServer
         enableDemoLanguageServer = try container.decodeIfPresent(Bool.self, forKey: .enableDemoLanguageServer)
             ?? Self.default.enableDemoLanguageServer
     }

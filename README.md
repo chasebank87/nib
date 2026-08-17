@@ -37,9 +37,10 @@ See [PRODUCT.md](PRODUCT.md) for vision, non-goals, and MVP acceptance criteria.
 - Crash recovery snapshots (no in-place autosave)
 - Semantic theme tokens with shipped Nib Light / Nib Dark; user themes from Application Support
 - Demo language server (FakeLSP): document sync, diagnostics, completions (`⌃Space`), hover
+- Real LSP over stdio with PATH auto-detection (Pyright, TypeScript LS, SourceKit, ZLS, …)
 - Zig core linked through a C ABI, with a proof-of-integration API and tests
 
-**Designed from the start, implemented in later phases:** real LSP server install, Git-aware status, inline AI, agent tools with permission gates. The full map is in [ROADMAP.md](ROADMAP.md) and [BACKLOG.md](BACKLOG.md).
+**Designed from the start, implemented in later phases:** dedicated LSP install UI, Git-aware status, inline AI, agent tools with permission gates. The full map is in [ROADMAP.md](ROADMAP.md) and [BACKLOG.md](BACKLOG.md).
 
 ## Architecture overview
 

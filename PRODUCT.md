@@ -61,7 +61,7 @@ Shipped themes + user theme JSON from Application Support, Tree-sitter highlight
 
 ### Phase 3 — LSP and IDE capabilities
 
-Document-centric LSP with a built-in demo FakeLSP (diagnostics, completion, hover). Real server install/config, definition/references/rename, and formatting follow. Useful with the demo off (editing continues).
+Document-centric LSP with PATH auto-detection (Pyright, typescript-language-server, SourceKit, ZLS, …), optional demo FakeLSP, diagnostics/completion/hover. Real server install UI, definition/references/rename, and formatting follow. Useful with language server off.
 
 ### Phase 4 — AI selection actions
 

@@ -42,6 +42,11 @@ public struct UnconfiguredLanguageServer: LanguageServerClienting, LanguageServe
         _ = languageID
         return nil
     }
+
+    public func launchConfiguration(for languageID: String) -> LanguageServerLaunch? {
+        _ = languageID
+        return nil
+    }
 }
 
 /// Boots the built-in FakeLSP over an in-process pipe pair for demo / tests.

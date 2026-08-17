@@ -24,34 +24,6 @@ public struct EditorShellView: View {
         ZStack {
             session.theme.color(.editorBackground).ignoresSafeArea()
             VStack(spacing: 0) {
-                HStack(spacing: 8) {
-                    LanguageMenu(
-                        language: session.language,
-                        theme: session.theme,
-                        onSelect: { session.onLanguageOverride($0) }
-                    )
-                    if let message = session.reducedFeatureMessage {
-                        Text(message)
-                            .font(.system(size: 11))
-                            .foregroundStyle(session.theme.color(.editorForeground).opacity(0.8))
-                            .lineLimit(1)
-                    } else if let diagnostic = session.diagnostics.first {
-                        Text("\(diagnostic.severity.rawValue): \(diagnostic.message)")
-                            .font(.system(size: 11))
-                            .foregroundStyle(session.theme.color(.editorForeground).opacity(0.85))
-                            .lineLimit(1)
-                    }
-                    Spacer()
-                    Text(session.lspStatus)
-                        .font(.system(size: 11))
-                        .foregroundStyle(session.theme.color(.gutterForeground))
-                }
-                // Clear traffic lights under a transparent titlebar.
-                .padding(.leading, 78)
-                .padding(.trailing, 12)
-                .padding(.vertical, 5)
-                .background(session.theme.color(.gutterBackground))
-
                 EditorTextView(
                     text: $session.text,
                     caretUTF16: $session.caretUTF16,
@@ -66,8 +38,9 @@ public struct EditorShellView: View {
                         && session.capabilities.wrapLines
                         && session.reducedFeatureMessage == nil
                 )
+
+                statusBar
             }
-            .padding(.top, 0)
 
             if session.isPalettePresented {
                 CommandPaletteView(
@@ -174,6 +147,48 @@ public struct EditorShellView: View {
         .onAppear {
             session.theme = resolveTheme()
             session.settings = resolveSettings()
+        }
+    }
+
+    private var statusBar: some View {
+        ZStack {
+            HStack(spacing: 8) {
+                statusLeading
+                Spacer(minLength: 8)
+                Text(session.lspStatus)
+                    .font(.system(size: 11))
+                    .foregroundStyle(session.theme.color(.gutterForeground))
+                    .lineLimit(1)
+            }
+
+            LanguageMenu(
+                language: session.language,
+                theme: session.theme,
+                onSelect: { session.onLanguageOverride($0) }
+            )
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 5)
+        .frame(maxWidth: .infinity)
+        .background(session.theme.color(.gutterBackground))
+    }
+
+    @ViewBuilder
+    private var statusLeading: some View {
+        if let message = session.reducedFeatureMessage {
+            Text(message)
+                .font(.system(size: 11))
+                .foregroundStyle(session.theme.color(.editorForeground).opacity(0.8))
+                .lineLimit(1)
+        } else if let diagnostic = session.diagnostics.first {
+            Text("\(diagnostic.severity.rawValue): \(diagnostic.message)")
+                .font(.system(size: 11))
+                .foregroundStyle(session.theme.color(.editorForeground).opacity(0.85))
+                .lineLimit(1)
+        } else {
+            Text(session.languageOverrideID == nil ? "Auto" : "Manual")
+                .font(.system(size: 11))
+                .foregroundStyle(session.theme.color(.gutterForeground).opacity(0.7))
         }
     }
 
