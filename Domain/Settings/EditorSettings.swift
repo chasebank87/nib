@@ -50,6 +50,24 @@ public struct EditorSettings: Equatable, Sendable, Codable {
 
     public static let storageKey = "editor.settings.v1"
 
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        fontName = try container.decodeIfPresent(String.self, forKey: .fontName) ?? Self.default.fontName
+        fontSize = try container.decodeIfPresent(Double.self, forKey: .fontSize) ?? Self.default.fontSize
+        lineHeight = try container.decodeIfPresent(Double.self, forKey: .lineHeight) ?? Self.default.lineHeight
+        tabWidth = try container.decodeIfPresent(Int.self, forKey: .tabWidth) ?? Self.default.tabWidth
+        insertSpaces = try container.decodeIfPresent(Bool.self, forKey: .insertSpaces) ?? Self.default.insertSpaces
+        wrapLines = try container.decodeIfPresent(Bool.self, forKey: .wrapLines) ?? Self.default.wrapLines
+        ligatures = try container.decodeIfPresent(Bool.self, forKey: .ligatures) ?? Self.default.ligatures
+        showLineNumbers = try container.decodeIfPresent(Bool.self, forKey: .showLineNumbers)
+            ?? Self.default.showLineNumbers
+        highlightCurrentLine = try container.decodeIfPresent(Bool.self, forKey: .highlightCurrentLine)
+            ?? Self.default.highlightCurrentLine
+        showIndentGuides = try container.decodeIfPresent(Bool.self, forKey: .showIndentGuides)
+            ?? Self.default.showIndentGuides
+        themeID = try container.decodeIfPresent(String.self, forKey: .themeID)
+    }
+
     public func sanitized() -> EditorSettings {
         var copy = self
         if copy.fontName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
