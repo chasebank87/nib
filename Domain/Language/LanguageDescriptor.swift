@@ -68,7 +68,18 @@ public struct LanguageDescriptor: Identifiable, Equatable, Sendable {
 }
 
 public protocol LanguageDetecting: Sendable {
-    func detect(url: URL?, firstLine: String?, overrideID: String?) -> LanguageDescriptor
+    func detect(
+        url: URL?,
+        firstLine: String?,
+        content: String?,
+        overrideID: String?
+    ) -> LanguageDescriptor
+}
+
+public extension LanguageDetecting {
+    func detect(url: URL?, firstLine: String?, overrideID: String?) -> LanguageDescriptor {
+        detect(url: url, firstLine: firstLine, content: nil, overrideID: overrideID)
+    }
 }
 
 public protocol SyntaxHighlighting: Sendable {

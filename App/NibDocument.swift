@@ -17,6 +17,7 @@ final class NibDocument: NSDocument {
     nonisolated(unsafe) private var lastSeenModificationDate: Date?
     nonisolated(unsafe) private var pendingLargeFileByteCount: Int?
     nonisolated(unsafe) private var highlightTask: Task<Void, Never>?
+    nonisolated(unsafe) private var languageDetectTask: Task<Void, Never>?
     nonisolated(unsafe) private var languageOverrideID: String?
     nonisolated(unsafe) private var lspVersion = 0
     nonisolated(unsafe) private var lspIsOpen = false
@@ -196,8 +197,7 @@ final class NibDocument: NSDocument {
         MainActor.assumeIsolated {
             self.syncWindowChrome()
             self.scheduleRecoveryWrite()
-            self.scheduleHighlight()
-            self.scheduleLanguageServerChange()
+            self.scheduleLanguageAutoDetect()
         }
     }
 
@@ -433,13 +433,42 @@ final class NibDocument: NSDocument {
         let detected = AppComposition.shared.languageDetector.detect(
             url: fileURL,
             firstLine: firstLine,
+            content: session.text,
             overrideID: languageOverrideID
         )
+        let languageChanged = detected.id != session.language.id
         session.language = detected
         session.languageOverrideID = languageOverrideID
         scheduleHighlight()
-        Task { @MainActor [weak self] in
-            await self?.syncLanguageServerDocument(forceReopen: true)
+        if languageChanged || lspIsOpen == false {
+            scheduleLanguageServerSync(forceReopen: true)
+        } else {
+            scheduleLanguageServerChange()
+        }
+    }
+
+    /// When the user has not pinned a language, re-detect from path/shebang/content while typing.
+    @MainActor
+    private func scheduleLanguageAutoDetect() {
+        guard languageOverrideID == nil else {
+            scheduleHighlight()
+            scheduleLanguageServerChange()
+            return
+        }
+        languageDetectTask?.cancel()
+        languageDetectTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: 180_000_000)
+            guard Task.isCancelled == false, let self else { return }
+            self.refreshLanguageAndHighlight()
+        }
+    }
+
+    @MainActor
+    private func scheduleLanguageServerSync(forceReopen: Bool) {
+        lspSyncTask?.cancel()
+        lspSyncTask = Task { @MainActor [weak self] in
+            guard Task.isCancelled == false else { return }
+            await self?.syncLanguageServerDocument(forceReopen: forceReopen)
         }
     }
 
