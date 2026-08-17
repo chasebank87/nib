@@ -49,13 +49,17 @@ This repository’s Linux/cloud agents typically **do not** have Xcode. Do not t
 
 ## Generate and build the app
 
+`make test` does **not** need XcodeGen. `make build` and `make run` do.
+
 ```bash
+brew install xcodegen
+make setup
 make zig
 xcodegen generate
 xcodebuild -scheme Nib -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO build
 ```
 
-Or `make build` / `make run`.
+Or `make build` / `make run`. If `make build` prints `xcodegen: No such file or directory`, install XcodeGen and retry.
 
 ## CI
 

@@ -7,19 +7,51 @@ CONFIGURATION ?= Debug
 DERIVED_DATA ?= $(CURDIR)/.derivedData
 ZIG_LIB_DIR := $(CURDIR)/ZigCore/zig-out/lib
 
-.PHONY: help zig test-zig test-swift test build run format lint bench
+.PHONY: help setup check-zig check-xcodegen check-xcodebuild zig test-zig test-swift test project build run format lint bench
 
 help:
 	@echo "nib targets:"
+	@echo "  make setup       Check for zig, XcodeGen, and xcodebuild"
 	@echo "  make zig         Build libnib_core"
 	@echo "  make test-zig    Run Zig unit tests"
-	@echo "  make test-swift  Run Swift package tests (macOS, requires Zig build)"
+	@echo "  make test-swift  Run Swift package tests (macOS, requires Zig; no XcodeGen)"
 	@echo "  make test        test-zig + test-swift"
+	@echo "  make project     Generate Nib.xcodeproj (requires XcodeGen)"
 	@echo "  make build       Generate Xcode project and build the app"
 	@echo "  make run         Build and launch nib.app"
 	@echo "  make format      zig fmt + SwiftFormat"
 	@echo "  make lint        SwiftLint + zig fmt --check"
 	@echo "  make bench       Placeholder until NIB-017"
+
+check-zig:
+	@command -v $(ZIG) >/dev/null 2>&1 || { \
+		echo "error: zig is not installed or not on PATH."; \
+		echo "       brew install zig"; \
+		echo "       see docs/TOOLCHAINS.md"; \
+		exit 1; \
+	}
+
+check-xcodegen:
+	@command -v $(XCODEGEN) >/dev/null 2>&1 || { \
+		echo "error: xcodegen is not installed (needed to generate Nib.xcodeproj)."; \
+		echo "       brew install xcodegen"; \
+		echo "       make test   # package tests do not need XcodeGen"; \
+		echo "       make build  # after XcodeGen is installed"; \
+		exit 1; \
+	}
+
+check-xcodebuild:
+	@command -v xcodebuild >/dev/null 2>&1 || { \
+		echo "error: xcodebuild is not installed. Install Xcode, then:"; \
+		echo "       xcode-select --install"; \
+		exit 1; \
+	}
+
+setup: check-zig check-xcodegen check-xcodebuild
+	@echo "zig        $$($(ZIG) version)"
+	@echo "xcodegen   $$($(XCODEGEN) version 2>/dev/null || echo installed)"
+	@echo "xcodebuild $$(xcodebuild -version | head -n 1)"
+	@echo "Toolchains look ready."
 
 zig:
 	cd ZigCore && $(ZIG) build -Doptimize=ReleaseSafe
@@ -34,7 +66,10 @@ test-swift: zig
 
 test: test-zig test-swift
 
-build: zig
+project: check-xcodegen
+	$(XCODEGEN) generate
+
+build: zig check-xcodegen check-xcodebuild
 	$(XCODEGEN) generate
 	xcodebuild \
 		-project Nib.xcodeproj \

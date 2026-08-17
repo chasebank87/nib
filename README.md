@@ -75,11 +75,18 @@ Locked decisions: [DECISIONS.md](DECISIONS.md).
 
 Pinned versions live in [docs/TOOLCHAINS.md](docs/TOOLCHAINS.md).
 
+```bash
+brew install zig xcodegen
+make setup
+```
+
 - macOS 14.0 or later (deployment target)
 - Xcode 16+ / Swift 6.0+
-- [Zig 0.16.0](https://ziglang.org/download/)
-- [XcodeGen](https://github.com/yonaskolb/XcodeGen) (`brew install xcodegen`)
-- Optional: SwiftFormat, SwiftLint
+- [Zig 0.16.0](https://ziglang.org/download/) (`brew install zig`)
+- [XcodeGen](https://github.com/yonaskolb/XcodeGen) (`brew install xcodegen`) — required for `make build` / `make run`, **not** for `make test`
+- Optional: SwiftFormat, SwiftLint (`brew bundle` installs them from the Brewfile)
+
+This cloud/Linux checkout **cannot** compile the macOS app. Zig unit tests can run anywhere Zig is installed. Swift and `xcodebuild` require a Mac (or the `macos-15` GitHub Actions runner).
 
 This cloud/Linux checkout **cannot** compile the macOS app. Zig unit tests can run anywhere Zig is installed. Swift and `xcodebuild` require a Mac (or the `macos-15` GitHub Actions runner).
 
@@ -96,7 +103,8 @@ make test-swift
 # Everything the Makefile can run
 make test
 
-# Generate Nib.xcodeproj, compile the app
+# Generate Nib.xcodeproj, compile the app (needs XcodeGen)
+brew install xcodegen   # once
 make build
 
 # Build and launch
