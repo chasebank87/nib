@@ -4,7 +4,6 @@ import Foundation
 @MainActor
 public protocol EditorDocumenting: ObservableObject {
     var text: String { get set }
-    var displayName: String { get }
     var isDocumentEdited: Bool { get }
     var isPalettePresented: Bool { get set }
     func performOpen()

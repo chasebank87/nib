@@ -2,8 +2,8 @@ import AppKit
 import NibCoreBridge
 import NibServices
 
+@MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
-    let composition = AppComposition.shared
 
     func applicationWillFinishLaunching(_ notification: Notification) {
         _ = NibDocument.self
@@ -12,7 +12,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         AppLog.core.info("Zig core \(NibCore.version, privacy: .public)")
         AppLog.app.info("nib launched")
-        composition.appearance.apply()
+        AppComposition.shared.appearance.apply()
         if NSDocumentController.shared.documents.isEmpty {
             NSDocumentController.shared.newDocument(nil)
         }

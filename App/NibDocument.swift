@@ -8,7 +8,7 @@ import SwiftUI
 @MainActor
 @objc(NibDocument)
 final class NibDocument: NSDocument, EditorDocumenting {
-    let objectWillChange = ObservableObjectPublisher()
+    nonisolated let objectWillChange = ObservableObjectPublisher()
 
     @Published var model = TextDocumentModel()
     @Published var text = ""
