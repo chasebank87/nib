@@ -29,8 +29,18 @@ public struct Theme: Equatable, Sendable, Identifiable, Codable {
     }
 
     public func token(forSyntaxScope scope: String) -> ThemeToken? {
-        guard let raw = syntax[scope] else { return nil }
-        return ThemeToken(rawValue: raw)
+        var components = scope.split(separator: ".").map(String.init)
+        while components.isEmpty == false {
+            let key = components.joined(separator: ".")
+            if let raw = syntax[key], let token = ThemeToken(rawValue: raw) {
+                return token
+            }
+            if let raw = syntax[components[components.count - 1]], let token = ThemeToken(rawValue: raw) {
+                return token
+            }
+            components.removeLast()
+        }
+        return nil
     }
 
     public static func fallbackHex(for token: ThemeToken, appearance: ThemeAppearance) -> String {

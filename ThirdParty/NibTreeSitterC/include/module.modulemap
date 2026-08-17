@@ -1,0 +1,4 @@
+module NibTreeSitterC [system] {
+  umbrella header "NibTreeSitterC.h"
+  export *
+}

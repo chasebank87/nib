@@ -37,14 +37,14 @@ Phases are capability slices, not calendar estimates. Each phase should leave `m
 
 **Goal.** The file is readable as code.
 
-- User-selectable themes; load extra JSON from a well-known directory
-- Language detection: extension, filename, shebang, override
-- Tree-sitter highlight pipeline + theme token mapping
-- Find, replace, find-in-selection, regex, case, whole word
-- Configurable line numbers, current-line highlight, indent guides, bracket matching
+- User-selectable themes; load extra JSON from Application Support `Themes/` — **done**
+- Language detection: extension, filename, shebang, override — **done**
+- Tree-sitter highlight pipeline + theme token mapping — **done** (JSON / Markdown / Python; regex fallback for other priority languages)
+- Find, replace, find-in-selection, regex, case, whole word — **done** (`⌘F` overlay)
+- Configurable line numbers, current-line highlight, indent guides, bracket matching — **partial** (line numbers + settings toggles; indent guides / bracket matching / current-line paint follow-up)
 - Minimap and folding remain optional/off by default
-- Zig search primitives if Swift regex + TextKit find bar is not enough
-- Large-file reduced-feature mode (disable wrap, live highlight, etc.)
+- Zig search primitives if Swift regex + TextKit find bar is not enough — deferred (Swift find engine is enough for now)
+- Large-file reduced-feature mode (disable wrap, live highlight, etc.) — **done** (`DocumentCapabilities`)
 
 **Exit.** Priority languages colorize without LSP. Search is keyboard-complete.
 

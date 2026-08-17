@@ -8,6 +8,10 @@ public struct EditorSettings: Equatable, Sendable, Codable {
     public var insertSpaces: Bool
     public var wrapLines: Bool
     public var ligatures: Bool
+    public var showLineNumbers: Bool
+    public var highlightCurrentLine: Bool
+    public var showIndentGuides: Bool
+    public var themeID: String?
 
     public init(
         fontName: String = EditorSettings.systemMonospaceName,
@@ -16,7 +20,11 @@ public struct EditorSettings: Equatable, Sendable, Codable {
         tabWidth: Int = 4,
         insertSpaces: Bool = true,
         wrapLines: Bool = false,
-        ligatures: Bool = true
+        ligatures: Bool = true,
+        showLineNumbers: Bool = true,
+        highlightCurrentLine: Bool = true,
+        showIndentGuides: Bool = false,
+        themeID: String? = nil
     ) {
         self.fontName = fontName
         self.fontSize = fontSize
@@ -25,6 +33,10 @@ public struct EditorSettings: Equatable, Sendable, Codable {
         self.insertSpaces = insertSpaces
         self.wrapLines = wrapLines
         self.ligatures = ligatures
+        self.showLineNumbers = showLineNumbers
+        self.highlightCurrentLine = highlightCurrentLine
+        self.showIndentGuides = showIndentGuides
+        self.themeID = themeID
     }
 
     public static let `default` = EditorSettings()
@@ -46,6 +58,9 @@ public struct EditorSettings: Equatable, Sendable, Codable {
         copy.fontSize = min(max(copy.fontSize, 9), 32)
         copy.lineHeight = min(max(copy.lineHeight, 1.0), 2.5)
         copy.tabWidth = min(max(copy.tabWidth, 1), 16)
+        if let themeID = copy.themeID, themeID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            copy.themeID = nil
+        }
         return copy
     }
 

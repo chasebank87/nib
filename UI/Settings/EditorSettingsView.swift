@@ -3,9 +3,11 @@ import SwiftUI
 
 public struct EditorSettingsView: View {
     @Binding var settings: EditorSettings
+    var themes: [Theme]
 
-    public init(settings: Binding<EditorSettings>) {
+    public init(settings: Binding<EditorSettings>, themes: [Theme] = Theme.builtIn) {
         _settings = settings
+        self.themes = themes
     }
 
     public var body: some View {
@@ -27,9 +29,21 @@ public struct EditorSettingsView: View {
             Toggle("Insert spaces for Tab", isOn: $settings.insertSpaces)
             Toggle("Wrap lines", isOn: $settings.wrapLines)
             Toggle("Ligatures", isOn: $settings.ligatures)
+            Toggle("Line numbers", isOn: $settings.showLineNumbers)
+            Toggle("Highlight current line", isOn: $settings.highlightCurrentLine)
+            Toggle("Indent guides", isOn: $settings.showIndentGuides)
+            Picker("Theme", selection: Binding(
+                get: { settings.themeID ?? "" },
+                set: { settings.themeID = $0.isEmpty ? nil : $0 }
+            )) {
+                Text("Automatic").tag("")
+                ForEach(themes) { theme in
+                    Text(theme.name).tag(theme.id)
+                }
+            }
         }
         .formStyle(.grouped)
-        .frame(width: 420, height: 360)
+        .frame(width: 420, height: 460)
         .onChange(of: settings) { _, newValue in
             let sanitized = newValue.sanitized()
             if sanitized != newValue {

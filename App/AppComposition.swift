@@ -14,6 +14,9 @@ final class AppComposition: ObservableObject {
     let languageServer: LanguageServerClienting
     let secrets: SecretStoring
     let aiProvider: AIProvider
+    let languageDetector: LanguageDetecting
+    let syntaxHighlighter: SyntaxHighlighting
+    let themeCatalog: ThemeCatalog
 
     init(
         settings: SettingsStoring = UserDefaultsSettingsStore(),
@@ -21,12 +24,26 @@ final class AppComposition: ObservableObject {
         languageServer: LanguageServerClienting = UnconfiguredLanguageServer(),
         secrets: SecretStoring = InMemorySecretStore(),
         aiProvider: AIProvider = UnconfiguredAIProvider.instance,
-        recovery: DocumentRecoveryStoring? = nil
+        recovery: DocumentRecoveryStoring? = nil,
+        languageDetector: LanguageDetecting = DefaultLanguageDetector(),
+        syntaxHighlighter: SyntaxHighlighting = CompositeSyntaxHighlighter(),
+        themeCatalog: ThemeCatalog? = nil
     ) {
         self.settings = settings
         self.languageServer = languageServer
         self.secrets = secrets
         self.aiProvider = aiProvider
+        self.languageDetector = languageDetector
+        self.syntaxHighlighter = syntaxHighlighter
+        ThemeCatalog.ensureUserDirectoryExists()
+        if let themeCatalog {
+            self.themeCatalog = themeCatalog
+        } else {
+            self.themeCatalog = ThemeCatalog(
+                builtIn: Theme.builtIn,
+                extra: ThemeCatalog.loadUserThemes()
+            )
+        }
         if let recovery {
             self.recovery = recovery
         } else {
@@ -44,14 +61,21 @@ final class AppComposition: ObservableObject {
     }
 
     func resolvedTheme() -> Theme {
+        if let pinned = editorSettings.settings.themeID,
+           let theme = themeCatalog.theme(id: pinned)
+        {
+            return theme
+        }
         switch appearance.preference {
         case .light:
-            return .nibLight
+            return themeCatalog.theme(id: Theme.nibLight.id) ?? .nibLight
         case .dark:
-            return .nibDark
+            return themeCatalog.theme(id: Theme.nibDark.id) ?? .nibDark
         case .system:
             let match = NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua])
-            return match == .darkAqua ? .nibDark : .nibLight
+            return match == .darkAqua
+                ? (themeCatalog.theme(id: Theme.nibDark.id) ?? .nibDark)
+                : (themeCatalog.theme(id: Theme.nibLight.id) ?? .nibLight)
         }
     }
 }

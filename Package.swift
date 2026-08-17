@@ -19,6 +19,26 @@ let package = Package(
             path: "Domain"
         ),
         .target(
+            name: "NibTreeSitterC",
+            path: "ThirdParty/NibTreeSitterC",
+            sources: [
+                "src/runtime/lib.c",
+                "src/json/parser.c",
+                "src/python/parser.c",
+                "src/python/scanner.c",
+                "src/markdown/parser.c",
+                "src/markdown/scanner.c",
+            ],
+            publicHeadersPath: "include",
+            cSettings: [
+                .headerSearchPath("include"),
+                .headerSearchPath("src/runtime"),
+                .headerSearchPath("src/json"),
+                .headerSearchPath("src/python"),
+                .headerSearchPath("src/markdown"),
+            ]
+        ),
+        .target(
             name: "NibCoreBridge",
             dependencies: [
                 "NibDomain",
@@ -33,8 +53,12 @@ let package = Package(
             dependencies: [
                 "NibDomain",
                 "NibCoreBridge",
+                "NibTreeSitterC",
             ],
-            path: "Services"
+            path: "Services",
+            resources: [
+                .copy("Syntax/Queries"),
+            ]
         ),
         .target(
             name: "NibUI",
@@ -59,5 +83,6 @@ let package = Package(
             ],
             path: "Tests/CoreBridgeTests"
         ),
-    ]
+    ],
+    cLanguageStandard: .c11
 )

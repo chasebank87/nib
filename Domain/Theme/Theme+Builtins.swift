@@ -96,5 +96,8 @@ extension Theme {
         "punctuation": ThemeToken.syntaxPunctuation.rawValue,
         "heading": ThemeToken.markdownHeading.rawValue,
         "link": ThemeToken.markdownLink.rawValue,
+        "text.title": ThemeToken.markdownHeading.rawValue,
+        "text.uri": ThemeToken.markdownLink.rawValue,
+        "string.special.key": ThemeToken.syntaxVariable.rawValue,
     ]
 }

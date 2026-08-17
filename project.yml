@@ -30,6 +30,10 @@ targets:
       - path: Resources
         buildPhase: resources
         type: folder
+      - path: Services/Syntax/Queries
+        buildPhase: resources
+        type: folder
+        name: Queries
     dependencies:
       - package: Nib
         product: NibDomain

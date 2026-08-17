@@ -30,4 +30,19 @@ struct LanguageDetectorTests {
         )
         #expect(unknown == .plainText)
     }
+
+    @Test func filenameRules() {
+        let manifest = detector.detect(
+            url: URL(fileURLWithPath: "/tmp/Package.swift"),
+            firstLine: nil,
+            overrideID: nil
+        )
+        #expect(manifest.id == "swift")
+        let docker = detector.detect(
+            url: URL(fileURLWithPath: "/tmp/Dockerfile"),
+            firstLine: nil,
+            overrideID: nil
+        )
+        #expect(docker.id == "dockerfile")
+    }
 }

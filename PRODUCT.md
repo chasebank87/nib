@@ -51,13 +51,13 @@ The user is keyboard-fluent, appearance-sensitive, and skeptical of tools that s
 
 Inception documents, module boundaries, buildable app slice, Zig FFI proof, theme tokens, command palette, tests for the document model and bridge.
 
-### Phase 1 — Native file editor MVP (this repository)
+### Phase 1 — Native file editor MVP
 
 Reliable open/edit/save, encodings policy, line-ending preservation, recovery snapshots (no in-place autosave), go to line, editor settings (font, tabs, wrap), file watching, external-change conflict, drag and drop, recent files, Finder reveal.
 
 ### Phase 2 — Themes, syntax, search
 
-Shipped themes + user theme files, Tree-sitter highlighting, language detection, find/replace (selection, regex, case, word), configurable gutter features, large-file thresholds.
+Shipped themes + user theme JSON from Application Support, Tree-sitter highlighting (JSON / Markdown / Python) with regex fallbacks, language detection, find/replace overlay, line numbers, large-file capability matrix.
 
 ### Phase 3 — LSP and IDE capabilities
 

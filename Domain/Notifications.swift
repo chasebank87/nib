@@ -5,4 +5,5 @@ public extension Notification.Name {
     static let nibAppearanceDidChange = Notification.Name("nib.appearanceDidChange")
     static let nibEditorSettingsDidChange = Notification.Name("nib.editorSettingsDidChange")
     static let nibGoToLine = Notification.Name("nib.goToLine")
+    static let nibFind = Notification.Name("nib.find")
 }

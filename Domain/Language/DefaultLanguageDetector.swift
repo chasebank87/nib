@@ -8,8 +8,13 @@ public struct DefaultLanguageDetector: LanguageDetecting {
     }
 
     public func detect(url: URL?, firstLine: String?, overrideID: String?) -> LanguageDescriptor {
-        if let overrideID, let match = languages.first(where: { $0.id == overrideID }) {
-            return match
+        if let overrideID {
+            if overrideID == LanguageDescriptor.plainText.id {
+                return .plainText
+            }
+            if let match = languages.first(where: { $0.id == overrideID }) {
+                return match
+            }
         }
         if let url {
             let filename = url.lastPathComponent

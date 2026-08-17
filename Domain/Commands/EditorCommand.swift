@@ -26,9 +26,11 @@ public enum BuiltInCommandID {
     public static let saveAs = "file.saveAs"
     public static let revealInFinder = "file.revealInFinder"
     public static let goToLine = "nav.goToLine"
+    public static let find = "edit.find"
     public static let toggleAppearance = "view.toggleAppearance"
     public static let togglePalette = "view.togglePalette"
     public static let openSettings = "view.openSettings"
+    public static let languagePlain = "lang.plaintext"
 }
 
 public enum CommandFilter {

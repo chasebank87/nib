@@ -15,6 +15,8 @@ final class NibDocument: NSDocument {
     nonisolated(unsafe) private var isWritingToDisk = false
     nonisolated(unsafe) private var lastSeenModificationDate: Date?
     nonisolated(unsafe) private var pendingLargeFileByteCount: Int?
+    nonisolated(unsafe) private var highlightTask: Task<Void, Never>?
+    nonisolated(unsafe) private var languageOverrideID: String?
 
     override init() {
         super.init()
@@ -38,6 +40,13 @@ final class NibDocument: NSDocument {
                         }
                     }
                 }
+            }
+            session.onLanguageOverride = { [weak self] overrideID in
+                self?.languageOverrideID = overrideID
+                self?.refreshLanguageAndHighlight()
+            }
+            session.onFindReplaceAll = { [weak self] options in
+                self?.replaceAll(using: options)
             }
             self.session = session
             self.registerCommands()
@@ -74,6 +83,7 @@ final class NibDocument: NSDocument {
             window.setFrameAutosaveName("NibEditorWindow")
             self.addWindowController(NSWindowController(window: window))
             self.syncWindowChrome()
+            self.refreshLanguageAndHighlight()
             if let byteCount = self.pendingLargeFileByteCount {
                 self.pendingLargeFileByteCount = nil
                 self.presentLargeFileWarning(byteCount: byteCount)
@@ -96,13 +106,15 @@ final class NibDocument: NSDocument {
         model = decoded
         session.applyFileText(decoded.text)
         MainActor.assumeIsolated {
+            self.session.capabilities = DocumentCapabilities.forByteCount(decoded.byteCount)
             if decoded.isReducedFeature {
                 self.session.reducedFeatureMessage =
-                    "Large file (\(Self.formatBytes(decoded.byteCount))). Wrapping is off; highlighting stays off."
+                    "Large file (\(Self.formatBytes(decoded.byteCount))). Wrapping and live highlighting are off."
             } else {
                 self.session.reducedFeatureMessage = nil
             }
             self.syncWindowChrome()
+            self.refreshLanguageAndHighlight()
             if DocumentLimits.needsOpenWarning(decoded.byteCount) {
                 self.pendingLargeFileByteCount = decoded.byteCount
             }
@@ -148,6 +160,7 @@ final class NibDocument: NSDocument {
         session.applyFileText(payload.text)
         updateChangeCount(.changeDone)
         syncWindowChrome()
+        refreshLanguageAndHighlight()
     }
 
     @MainActor
@@ -164,6 +177,7 @@ final class NibDocument: NSDocument {
         MainActor.assumeIsolated {
             self.syncWindowChrome()
             self.scheduleRecoveryWrite()
+            self.scheduleHighlight()
         }
     }
 
@@ -215,7 +229,35 @@ final class NibDocument: NSDocument {
             )
         ) { [weak self] in
             self?.session.isPalettePresented = false
+            self?.session.isFindPresented = false
             self?.session.isGoToLinePresented = true
+        }
+        commands.register(
+            EditorCommand(
+                id: BuiltInCommandID.find,
+                title: "Find…",
+                keywords: ["search", "replace", "regex"],
+                shortcutLabel: "⌘F"
+            )
+        ) { [weak self] in
+            self?.session.isPalettePresented = false
+            self?.session.isGoToLinePresented = false
+            self?.session.isFindPresented = true
+        }
+        for language in LanguageDescriptor.priorityLanguages + [.plainText] {
+            let id = "lang.\(language.id)"
+            commands.register(
+                EditorCommand(
+                    id: id,
+                    title: "Language: \(language.name)",
+                    keywords: ["syntax", language.id]
+                )
+            ) { [weak self] in
+                self?.languageOverrideID = language.id == LanguageDescriptor.plainText.id
+                    ? LanguageDescriptor.plainText.id
+                    : language.id
+                self?.refreshLanguageAndHighlight()
+            }
         }
         commands.register(
             EditorCommand(
@@ -340,9 +382,68 @@ final class NibDocument: NSDocument {
         let alert = NSAlert()
         alert.messageText = "This file is large"
         alert.informativeText =
-            "\(Self.formatBytes(byteCount)). Wrapping is disabled so scrolling stays usable. Syntax highlighting is not on in this version."
+            "\(Self.formatBytes(byteCount)). Wrapping and live highlighting are disabled so scrolling stays usable."
         alert.addButton(withTitle: "OK")
         alert.beginSheetModal(for: window)
+    }
+
+    @MainActor
+    private func refreshLanguageAndHighlight() {
+        let firstLine = session.text.split(separator: "\n", omittingEmptySubsequences: false).first
+            .map(String.init)
+        let detected = AppComposition.shared.languageDetector.detect(
+            url: fileURL,
+            firstLine: firstLine,
+            overrideID: languageOverrideID
+        )
+        session.language = detected
+        session.languageOverrideID = languageOverrideID
+        scheduleHighlight()
+    }
+
+    @MainActor
+    private func scheduleHighlight() {
+        highlightTask?.cancel()
+        guard session.capabilities.liveHighlighting else {
+            session.syntaxCaptures = []
+            return
+        }
+        let text = session.text
+        let language = session.language
+        let highlighter = AppComposition.shared.syntaxHighlighter
+        highlightTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 120_000_000)
+            guard Task.isCancelled == false else { return }
+            do {
+                let captures = try await highlighter.highlights(for: text, language: language)
+                guard Task.isCancelled == false else { return }
+                self.session.syntaxCaptures = captures
+            } catch is CancellationError {
+                return
+            } catch {
+                self.session.syntaxCaptures = []
+            }
+        }
+    }
+
+    @MainActor
+    private func replaceAll(using options: FindOptions) {
+        do {
+            let result = try FindReplaceEngine.replaceAll(in: session.text, options: options)
+            guard result.count > 0 else {
+                session.findStatus = "No matches"
+                return
+            }
+            session.applyFileText(result.text)
+            handleTextEdit(result.text)
+            session.findStatus = "Replaced \(result.count)"
+        } catch FindError.invalidRegularExpression(let message) {
+            session.findStatus = message
+        } catch FindError.emptyQuery {
+            session.findStatus = "Enter a query"
+        } catch {
+            session.findStatus = error.localizedDescription
+        }
     }
 
     @MainActor

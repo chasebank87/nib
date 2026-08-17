@@ -36,14 +36,19 @@ public struct LanguageDescriptor: Identifiable, Equatable, Sendable {
             shebangs: ["node"]
         ),
         LanguageDescriptor(id: "json", name: "JSON", extensions: ["json", "jsonc"]),
-        LanguageDescriptor(id: "markdown", name: "Markdown", extensions: ["md", "markdown"]),
+        LanguageDescriptor(id: "markdown", name: "Markdown", extensions: ["md", "markdown", "mdown"]),
         LanguageDescriptor(
             id: "python",
             name: "Python",
-            extensions: ["py"],
+            extensions: ["py", "pyi"],
             shebangs: ["python", "python3"]
         ),
-        LanguageDescriptor(id: "swift", name: "Swift", extensions: ["swift"]),
+        LanguageDescriptor(
+            id: "swift",
+            name: "Swift",
+            extensions: ["swift"],
+            filenames: ["Package.swift"]
+        ),
         LanguageDescriptor(id: "zig", name: "Zig", extensions: ["zig", "zon"]),
         LanguageDescriptor(id: "sql", name: "SQL", extensions: ["sql"]),
         LanguageDescriptor(id: "yaml", name: "YAML", extensions: ["yml", "yaml"]),
@@ -51,28 +56,38 @@ public struct LanguageDescriptor: Identifiable, Equatable, Sendable {
             id: "shell",
             name: "Shell",
             extensions: ["sh", "bash", "zsh"],
-            filenames: [".bashrc", ".zshrc"],
+            filenames: [".bashrc", ".zshrc", ".profile"],
             shebangs: ["sh", "bash", "zsh"]
+        ),
+        LanguageDescriptor(
+            id: "dockerfile",
+            name: "Dockerfile",
+            filenames: ["Dockerfile", "dockerfile"]
         ),
     ]
 }
 
-/// TODO(NIB-007): Implement using extension, filename, shebang, then user override.
 public protocol LanguageDetecting: Sendable {
     func detect(url: URL?, firstLine: String?, overrideID: String?) -> LanguageDescriptor
 }
 
-/// TODO(NIB-008): Tree-sitter incremental highlighting mapped to theme syntax tokens.
 public protocol SyntaxHighlighting: Sendable {
     func highlights(for text: String, language: LanguageDescriptor) async throws -> [SyntaxCapture]
 }
 
 public struct SyntaxCapture: Equatable, Sendable {
-    public var range: Range<Int>
+    /// UTF-16 NSRange location/length for TextKit.
+    public var utf16Range: Range<Int>
     public var scope: String
 
-    public init(range: Range<Int>, scope: String) {
-        self.range = range
+    public init(utf16Range: Range<Int>, scope: String) {
+        self.utf16Range = utf16Range
         self.scope = scope
     }
+}
+
+public enum SyntaxHighlightError: Error, Equatable, Sendable {
+    case unsupportedLanguage
+    case queryFailed(String)
+    case cancelled
 }

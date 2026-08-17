@@ -39,6 +39,12 @@ struct NibApp: App {
                 }
                 .keyboardShortcut("r", modifiers: [.command, .option])
             }
+            CommandGroup(replacing: .textFinding) {
+                Button("Find…") {
+                    NotificationCenter.default.post(name: .nibFind, object: nil)
+                }
+                .keyboardShortcut("f", modifiers: .command)
+            }
             CommandMenu("View") {
                 Button("Command Palette") {
                     NotificationCenter.default.post(name: .nibToggleCommandPalette, object: nil)
@@ -61,6 +67,9 @@ private struct EditorSettingsRoot: View {
     @ObservedObject private var controller = AppComposition.shared.editorSettings
 
     var body: some View {
-        EditorSettingsView(settings: $controller.settings)
+        EditorSettingsView(
+            settings: $controller.settings,
+            themes: AppComposition.shared.themeCatalog.themes
+        )
     }
 }

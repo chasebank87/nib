@@ -90,6 +90,7 @@ Independently testable tickets. Status: `done` means this repository already inc
 
 ## NIB-007 — Language detection
 
+- **Status:** done
 - **Goal:** Know what language the current file is without a server.
 - **Scope:** Implement `LanguageDetecting` with extension, filename, shebang, user override. Descriptors for the priority languages.
 - **Acceptance:** `Package.swift` → Swift; `Dockerfile` filename rules if added; `#!/usr/bin/env python3` → Python; override wins. Unknown → `plain-text`.
@@ -101,6 +102,7 @@ Independently testable tickets. Status: `done` means this repository already inc
 
 ## NIB-008 — Tree-sitter highlighting pipeline
 
+- **Status:** done (JSON / Markdown / Python via Tree-sitter; other priority languages via regex fallback)
 - **Goal:** Incremental syntax color mapped to theme tokens.
 - **Scope:** Tree-sitter C + grammars for at least JSON, Markdown, and one programming language. `SyntaxHighlighting` service applies attributes on a background queue; MainActor applies to TextKit. Remaining priority languages can follow in child tickets.
 - **Acceptance:** Editing a JSON file recolors incrementally without blocking typing. No LSP required. Missing grammar degrades to plain text.
@@ -112,6 +114,7 @@ Independently testable tickets. Status: `done` means this repository already inc
 
 ## NIB-009 — Find and replace
 
+- **Status:** done
 - **Goal:** In-file search that matches modern editor expectations.
 - **Scope:** Find, replace, find-in-selection, regex, case, whole word. Start with the system find bar if it meets the bar; replace with a custom overlay + Zig search if not.
 - **Acceptance:** Each mode has a fixture test. Regex compile errors are shown, not crashed. Replace all is one undo group.
@@ -123,7 +126,7 @@ Independently testable tickets. Status: `done` means this repository already inc
 
 ## NIB-010 — Large-file thresholds
 
-- **Status:** partial (Phase 1 warning + wrap-off; full capability matrix waits on highlighting)
+- **Status:** done
 - **Goal:** Never freeze the app on a huge log or generated file.
 - **Scope:** Domain constants + `DocumentCapability` flags. Disable wrap, live highlight, minimap, and LSP above thresholds. Warn on open.
 - **Acceptance:** Opening a generated multi-megabyte fixture does not beachball in a timed test harness; UI shows reduced-feature state. Thresholds documented.

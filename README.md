@@ -24,20 +24,21 @@ See [PRODUCT.md](PRODUCT.md) for vision, non-goals, and MVP acceptance criteria.
 
 ## Initial feature set
 
-**This repository’s Phase 0–1 slice:**
+**This repository’s Phase 0–2 slice:**
 
 - Native macOS document window with a single editor surface
 - Open, Save, and Save As for UTF-8 (BOM preserved; UTF-16 refused)
 - Line endings preserved for LF, CRLF, and CR; mixed files keep original bytes until you edit
-- Dirty-state indicator, TextKit undo/redo, go to line (`⌘L`)
-- Editor settings (font, size, tabs, wrap, ligatures) under Settings
-- Command palette (`⌘⇧P`) with a real command registry
+- Dirty-state indicator, TextKit undo/redo, go to line (`⌘L`), find/replace (`⌘F`)
+- Editor settings (font, size, tabs, wrap, ligatures, line numbers, theme pin) under Settings
+- Command palette (`⌘⇧P`) with a real command registry and language overrides
+- Syntax highlighting via Tree-sitter (JSON, Markdown, Python) and regex fallbacks
 - File watching with reload / keep-mine conflict, Reveal in Finder, recent files
 - Crash recovery snapshots (no in-place autosave)
-- Semantic theme tokens with shipped Nib Light / Nib Dark
+- Semantic theme tokens with shipped Nib Light / Nib Dark; user themes from Application Support
 - Zig core linked through a C ABI, with a proof-of-integration API and tests
 
-**Designed from the start, implemented in later phases:** syntax highlighting, search beyond the system find bar, LSP, Git-aware status, inline AI, agent tools with permission gates. The full map is in [ROADMAP.md](ROADMAP.md) and [BACKLOG.md](BACKLOG.md).
+**Designed from the start, implemented in later phases:** LSP, Git-aware status, inline AI, agent tools with permission gates. The full map is in [ROADMAP.md](ROADMAP.md) and [BACKLOG.md](BACKLOG.md).
 
 ## Architecture overview
 
