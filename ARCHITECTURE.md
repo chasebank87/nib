@@ -107,7 +107,7 @@ Pure models and protocols. No AppKit except where a type is an unavoidable syste
 
 ### CoreBridge
 
-- Clang module over `nib_core.h`
+- C header contract plus Swift `@_silgen_name` wrappers (no pkg-config required)
 - Swift surface (`NibCore`) with typed errors
 - `NibCoreActor` so Zig calls are serialized until the core documents thread safety
 

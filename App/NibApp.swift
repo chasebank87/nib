@@ -29,7 +29,7 @@ struct NibApp: App {
                 Button("Save As…") {
                     NSDocumentController.shared.currentDocument?.saveAs(nil)
                 }
-                .keyboardShortcut("S", modifiers: [.command, .shift])
+                .keyboardShortcut("s", modifiers: [.command, .shift])
             }
             CommandMenu("View") {
                 Button("Command Palette") {

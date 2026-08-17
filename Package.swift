@@ -14,10 +14,6 @@ let package = Package(
         .library(name: "NibUI", targets: ["NibUI"]),
     ],
     targets: [
-        .systemLibrary(
-            name: "CNibCore",
-            path: "ZigCore/include"
-        ),
         .target(
             name: "NibDomain",
             path: "Domain"
@@ -25,7 +21,6 @@ let package = Package(
         .target(
             name: "NibCoreBridge",
             dependencies: [
-                "CNibCore",
                 "NibDomain",
             ],
             path: "CoreBridge",

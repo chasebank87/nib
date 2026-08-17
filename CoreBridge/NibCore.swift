@@ -1,4 +1,3 @@
-import CNibCore
 import Foundation
 import NibDomain
 
