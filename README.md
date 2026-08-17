@@ -86,9 +86,14 @@ make setup
 - [XcodeGen](https://github.com/yonaskolb/XcodeGen) (`brew install xcodegen`) — required for `make build` / `make run`, **not** for `make test`
 - Optional: SwiftFormat, SwiftLint (`brew bundle` installs them from the Brewfile)
 
-This cloud/Linux checkout **cannot** compile the macOS app. Zig unit tests can run anywhere Zig is installed. Swift and `xcodebuild` require a Mac (or the `macos-15` GitHub Actions runner).
+`make build` needs the **Xcode app**, not only Command Line Tools. If `xcode-select -p` prints `/Library/Developer/CommandLineTools`:
 
-This cloud/Linux checkout **cannot** compile the macOS app. Zig unit tests can run anywhere Zig is installed. Swift and `xcodebuild` require a Mac (or the `macos-15` GitHub Actions runner).
+```bash
+sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+sudo xcodebuild -license accept
+```
+
+This cloud/Linux checkout **cannot** compile the macOS app. Zig unit tests can run anywhere Zig is installed. Swift package tests (`make test`) can run with Command Line Tools; `xcodebuild` requires Xcode.
 
 ## Build, run, and test
 

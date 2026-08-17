@@ -42,8 +42,26 @@ check-xcodegen:
 
 check-xcodebuild:
 	@command -v xcodebuild >/dev/null 2>&1 || { \
-		echo "error: xcodebuild is not installed. Install Xcode, then:"; \
-		echo "       xcode-select --install"; \
+		echo "error: xcodebuild is not installed. Install Xcode from the Mac App Store."; \
+		exit 1; \
+	}
+	@DEVELOPER_DIR=$$(xcode-select -p 2>/dev/null || true); \
+	case "$$DEVELOPER_DIR" in \
+		*/CommandLineTools) \
+			echo "error: xcodebuild needs the full Xcode app, not Command Line Tools."; \
+			echo "       Active directory is $$DEVELOPER_DIR"; \
+			echo "       1. Install Xcode from the Mac App Store if needed."; \
+			echo "       2. sudo xcode-select -s /Applications/Xcode.app/Contents/Developer"; \
+			echo "       3. sudo xcodebuild -license accept"; \
+			echo "       Or open the generated project in Xcode:"; \
+			echo "       make project && open Nib.xcodeproj"; \
+			echo "       make test still works with Command Line Tools."; \
+			exit 1; \
+			;; \
+	esac
+	@xcodebuild -version >/dev/null 2>&1 || { \
+		echo "error: xcodebuild cannot run. Point xcode-select at Xcode.app:"; \
+		echo "       sudo xcode-select -s /Applications/Xcode.app/Contents/Developer"; \
 		exit 1; \
 	}
 

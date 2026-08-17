@@ -45,6 +45,21 @@ xcodebuild -version
 swift --version
 ```
 
+`xcodebuild` must use the Xcode app. Command Line Tools (`/Library/Developer/CommandLineTools`) can compile `swift test` but not the `.app`:
+
+```bash
+sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+sudo xcodebuild -license accept
+xcodebuild -version
+```
+
+If Xcode is installed but you do not want to change `xcode-select` yet:
+
+```bash
+make project
+open Nib.xcodeproj
+```
+
 This repository’s Linux/cloud agents typically **do not** have Xcode. Do not treat a missing `swift` binary as a project failure.
 
 ## Generate and build the app
