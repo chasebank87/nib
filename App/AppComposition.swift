@@ -20,6 +20,7 @@ final class AppComposition: ObservableObject {
     let syntaxHighlighter: SyntaxHighlighting
     let themeCatalog: ThemeCatalog
 
+    private let httpProviderPreference: HTTPProviderPreference
     private var settingsObservation: AnyCancellable?
 
     init(
@@ -56,12 +57,13 @@ final class AppComposition: ObservableObject {
             self.recovery = (try? FileRecoveryStore()) ?? MemoryRecoveryStore()
         }
         editorSettings = EditorSettingsController(store: settings)
+        let httpPreference = HTTPProviderPreference(
+            isEnabled: editorSettings.settings.enableHTTPProvider
+        )
+        self.httpProviderPreference = httpPreference
         if let aiProvider {
             self.aiProvider = aiProvider
         } else {
-            let httpPreference = HTTPProviderPreference(
-                isEnabled: editorSettings.settings.enableHTTPProvider
-            )
             let http = HTTPOpenAICompatibleProvider(secrets: secrets)
             self.aiProvider = RoutedAIProvider(
                 mock: MockAIProvider(),
@@ -69,14 +71,6 @@ final class AppComposition: ObservableObject {
                 secrets: secrets,
                 preference: httpPreference
             )
-            settingsObservation = editorSettings.$settings
-                .sink { [weak self] newSettings in
-                    httpPreference.isEnabled = newSettings.enableHTTPProvider
-                    Task { @MainActor in
-                        guard let self else { return }
-                        await self.languageServers.applySettings(newSettings)
-                    }
-                }
         }
         let stored = settings.string(for: AppearanceController.preferenceKey)
         let preference = stored.flatMap(AppearancePreference.init(rawValue:)) ?? .system
@@ -87,17 +81,15 @@ final class AppComposition: ObservableObject {
         )
         appearance.apply()
 
-        if settingsObservation == nil {
-            let servers = self.languageServers
-            settingsObservation = editorSettings.$settings
-                .dropFirst()
-                .sink { settings in
-                    Task { @MainActor in
-                        await servers.applySettings(settings)
-                    }
-                }
-        }
+        let servers = self.languageServers
         let initialSettings = editorSettings.settings
+        settingsObservation = editorSettings.$settings
+            .sink { newSettings in
+                httpPreference.isEnabled = newSettings.enableHTTPProvider
+                Task { @MainActor in
+                    await servers.applySettings(newSettings)
+                }
+            }
         Task { @MainActor in
             await servers.applySettings(initialSettings)
         }

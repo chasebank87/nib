@@ -108,11 +108,6 @@ struct RoutedAIProviderTests {
     @Test func prefersMockWhenHTTPDisabled() async throws {
         let store = InMemorySecretStore()
         try store.store(account: KeychainSecretStore.providerAPIKeyAccount, secret: Data("sk".utf8))
-        let settings = MemorySettingsStore()
-        settings.set(
-            string: EditorSettings(enableHTTPProvider: false).encodedJSON(),
-            for: EditorSettings.storageKey
-        )
         let routed = RoutedAIProvider(
             mock: MockAIProvider(),
             http: HTTPOpenAICompatibleProvider(
@@ -120,7 +115,7 @@ struct RoutedAIProviderTests {
                 session: StubHTTPSession(body: "{}", auth: HTTPAuthProbe())
             ),
             secrets: store,
-            settings: settings
+            preference: HTTPProviderPreference(isEnabled: false)
         )
         let response = try await routed.complete(
             AIRequest(
