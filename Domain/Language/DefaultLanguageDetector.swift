@@ -53,17 +53,20 @@ public struct DefaultLanguageDetector: LanguageDetecting {
         }
 
         let checks: [(id: String, pattern: String)] = [
-            ("dockerfile", #"(?m)^(?i:FROM)\s+\S+"#),
-            ("python", #"(?m)^\s*(async\s+def|def|class|from\s+\w+(\.\w+)*\s+import|import\s+\w+)\b"#),
-            ("swift", #"(?m)^\s*(import\s+\w+|@main|func\s+\w+|struct\s+\w+|class\s+\w+|enum\s+\w+)\b"#),
-            ("zig", #"(?m)^\s*(const\s+\w+\s*=\s*@import|pub\s+fn\s+\w+|fn\s+\w+)\b"#),
-            ("typescript", #"(?m)^\s*(import\s+type\s+|export\s+(type|interface|default)|interface\s+\w+|type\s+\w+\s*=)"#),
-            ("javascript", #"(?m)^\s*(import\s+.+from\s+|export\s+(default\s+)?(function|class|const|let|var)|const\s+\w+\s*=\s*require\()"#),
-            ("json", #"^\s*[\{\[]"#),
-            ("yaml", #"(?m)^---\s*$|^\w[\w-]*:\s"#),
-            ("markdown", #"(?m)^#{1,6}\s+\S|^\s*```"#),
-            ("sql", #"(?m)^\s*(SELECT|INSERT|UPDATE|DELETE|CREATE|ALTER|DROP)\b"#),
-            ("shell", #"(?m)^\s*(#!.*(bash|zsh|sh)\b|export\s+\w+=)"#),
+            ("dockerfile", "(?m)^(?i:FROM)\\s+\\S+"),
+            ("python", "(?m)^\\s*(async\\s+def|def|class|from\\s+\\w+(\\.\\w+)*\\s+import|import\\s+\\w+)\\b"),
+            ("swift", "(?m)^\\s*(import\\s+\\w+|@main|func\\s+\\w+|struct\\s+\\w+|class\\s+\\w+|enum\\s+\\w+)\\b"),
+            ("zig", "(?m)^\\s*(const\\s+\\w+\\s*=\\s*@import|pub\\s+fn\\s+\\w+|fn\\s+\\w+)\\b"),
+            ("typescript", "(?m)^\\s*(import\\s+type\\s+|export\\s+(type|interface|default)|interface\\s+\\w+|type\\s+\\w+\\s*=)"),
+            (
+                "javascript",
+                "(?m)^\\s*(import\\s+.+from\\s+|export\\s+(default\\s+)?(function|class|const|let|var)|const\\s+\\w+\\s*=\\s*require\\()"
+            ),
+            ("json", "^\\s*[\\{\\[]"),
+            ("yaml", "(?m)^---\\s*$|^\\w[\\w-]*:\\s"),
+            ("markdown", "(?m)^#{1,6}\\s+\\S|^\\s*```"),
+            ("sql", "(?m)^\\s*(SELECT|INSERT|UPDATE|DELETE|CREATE|ALTER|DROP)\\b"),
+            ("shell", "(?m)^\\s*(#!.*(bash|zsh|sh)\\b|export\\s+\\w+=)"),
         ]
 
         for check in checks {
