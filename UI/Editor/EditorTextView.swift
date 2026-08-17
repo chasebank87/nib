@@ -4,6 +4,7 @@ import SwiftUI
 
 public struct EditorTextView: NSViewRepresentable {
     @Binding var text: String
+    @Binding var caretUTF16: Int
     @Binding var pendingCaretUTF16: Int?
     @Binding var pendingSelectionUTF16: Range<Int>?
     var theme: Theme
@@ -16,6 +17,7 @@ public struct EditorTextView: NSViewRepresentable {
 
     public init(
         text: Binding<String>,
+        caretUTF16: Binding<Int> = .constant(0),
         pendingCaretUTF16: Binding<Int?>,
         pendingSelectionUTF16: Binding<Range<Int>?> = .constant(nil),
         theme: Theme,
@@ -27,6 +29,7 @@ public struct EditorTextView: NSViewRepresentable {
         wrapLines: Bool = false
     ) {
         _text = text
+        _caretUTF16 = caretUTF16
         _pendingCaretUTF16 = pendingCaretUTF16
         _pendingSelectionUTF16 = pendingSelectionUTF16
         self.theme = theme
@@ -39,7 +42,7 @@ public struct EditorTextView: NSViewRepresentable {
     }
 
     public func makeCoordinator() -> Coordinator {
-        Coordinator(text: $text)
+        Coordinator(text: $text, caretUTF16: $caretUTF16)
     }
 
     public func makeNSView(context: Context) -> NSScrollView {
@@ -258,12 +261,14 @@ public struct EditorTextView: NSViewRepresentable {
 
     public final class Coordinator: NSObject, NSTextViewDelegate {
         var text: Binding<String>
+        var caretUTF16: Binding<Int>
         var ruler: LineNumberRulerView?
         var lastPaintSignature: SyntaxPaintSignature?
         var isApplyingExternalText = false
 
-        init(text: Binding<String>) {
+        init(text: Binding<String>, caretUTF16: Binding<Int>) {
             self.text = text
+            self.caretUTF16 = caretUTF16
         }
 
         public func textDidChange(_ notification: Notification) {
@@ -274,7 +279,13 @@ public struct EditorTextView: NSViewRepresentable {
                 lastPaintSignature = nil
                 text.wrappedValue = textView.string
             }
+            caretUTF16.wrappedValue = textView.selectedRange().location
             ruler?.needsDisplay = true
+        }
+
+        public func textViewDidChangeSelection(_ notification: Notification) {
+            guard let textView = notification.object as? NSTextView else { return }
+            caretUTF16.wrappedValue = textView.selectedRange().location
         }
     }
 }
@@ -313,6 +324,10 @@ final class LineNumberRulerView: NSRulerView {
         super.init(scrollView: textView.enclosingScrollView, orientation: .verticalRuler)
         clientView = textView
         ruleThickness = 36
+        // Avoid the default NSRuler accessory/hash chrome that draws a stray separator.
+        markers = []
+        // Clip so hash/separator chrome cannot bleed under a transparent titlebar.
+        clipsToBounds = true
     }
 
     @available(*, unavailable)
@@ -320,10 +335,16 @@ final class LineNumberRulerView: NSRulerView {
         fatalError("init(coder:) has not been implemented")
     }
 
-    override func drawHashMarksAndLabels(in rect: NSRect) {
-        guard let textView else { return }
+    override func draw(_ dirtyRect: NSRect) {
+        // Do not call super — NSRulerView draws a vertical separator that bleeds
+        // into the transparent titlebar under fullSizeContentView.
         theme.nsColor(.gutterBackground).setFill()
         bounds.fill()
+        drawHashMarksAndLabels(in: dirtyRect)
+    }
+
+    override func drawHashMarksAndLabels(in rect: NSRect) {
+        guard let textView else { return }
 
         let foreground = theme.nsColor(.gutterForeground)
         let font = NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .regular)

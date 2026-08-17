@@ -19,19 +19,22 @@ public struct Diagnostic: Equatable, Sendable, Identifiable {
     public var severity: DiagnosticSeverity
     public var line: Int
     public var column: Int
+    public var utf16Range: Range<Int>?
 
     public init(
         id: UUID = UUID(),
         message: String,
         severity: DiagnosticSeverity,
         line: Int,
-        column: Int
+        column: Int,
+        utf16Range: Range<Int>? = nil
     ) {
         self.id = id
         self.message = message
         self.severity = severity
         self.line = line
         self.column = column
+        self.utf16Range = utf16Range
     }
 }
 
@@ -56,14 +59,36 @@ public struct CompletionItem: Equatable, Sendable, Identifiable {
     }
 }
 
-/// TODO(NIB-011): JSON-RPC stdio client with incremental sync and cancellation.
+public struct HoverInfo: Equatable, Sendable {
+    public var contents: String
+
+    public init(contents: String) {
+        self.contents = contents
+    }
+}
+
+/// JSON-RPC stdio (or pipe) language server client with incremental sync.
 public protocol LanguageServerClienting: Sendable {
+    func start() async throws
+    func stop() async
     func openDocument(_ document: LSPDocumentIdentity, text: String) async throws
     func applyChange(_ document: LSPDocumentIdentity, text: String) async throws
     func closeDocument(_ document: LSPDocumentIdentity) async
+    func cancelAll() async
+    func completions(
+        document: LSPDocumentIdentity,
+        position: LSPPosition
+    ) async throws -> [CompletionItem]
+    func hover(
+        document: LSPDocumentIdentity,
+        position: LSPPosition
+    ) async throws -> HoverInfo?
 }
 
-/// TODO(NIB-011): User-visible install and configuration of language servers.
 public protocol LanguageServerInstalling: Sendable {
     func installedServer(for languageID: String) -> URL?
+}
+
+public protocol DiagnosticPublishing: Sendable {
+    var diagnosticsUpdates: AsyncStream<[Diagnostic]> { get }
 }

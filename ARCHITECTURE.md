@@ -196,14 +196,14 @@ sequenceDiagram
 
 TextKit remains the live editing buffer so IME, undo, and accessibility stay native. `TextDocumentModel` is the durable snapshot used for save, dirty, line-ending restoration, and later LSP/AI context.
 
-### LSP completions (Phase 3 — designed, not implemented)
+### LSP completions (Phase 3 — demo FakeLSP wired)
 
 1. Document opens → LSP client `textDocument/didOpen` (full text).
-2. Subsequent edits → incremental `didChange` from the document model, not from UI types.
-3. Completion request carries URI, position, and a cancellation token.
-4. User types again → previous request is cancelled.
-5. Results map to Domain `CompletionItem` and render in an overlay anchored to the caret.
-6. Server crash or missing install → diagnostics in the palette/inspector; editing continues.
+2. Subsequent edits → debounced full-document `didChange` (incremental ranges later).
+3. Completion request (`⌃Space`) carries URI, position, and cancels the prior feature task.
+4. Results map to Domain `CompletionItem` and render in `CompletionOverlayView`.
+5. Hover (`⌥⌘.`) and `publishDiagnostics` feed the chrome status strip.
+6. Demo off / unconfigured client → editing continues; Settings toggles FakeLSP.
 
 ### AI edits (Phase 4–5 — designed, not implemented)
 

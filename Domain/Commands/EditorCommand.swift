@@ -31,6 +31,8 @@ public enum BuiltInCommandID {
     public static let togglePalette = "view.togglePalette"
     public static let openSettings = "view.openSettings"
     public static let languagePlain = "lang.plaintext"
+    public static let complete = "lsp.complete"
+    public static let hover = "lsp.hover"
 }
 
 public enum CommandFilter {

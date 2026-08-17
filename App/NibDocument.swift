@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import NibDomain
 import NibServices
 import NibUI
@@ -17,6 +18,11 @@ final class NibDocument: NSDocument {
     nonisolated(unsafe) private var pendingLargeFileByteCount: Int?
     nonisolated(unsafe) private var highlightTask: Task<Void, Never>?
     nonisolated(unsafe) private var languageOverrideID: String?
+    nonisolated(unsafe) private var lspVersion = 0
+    nonisolated(unsafe) private var lspIsOpen = false
+    nonisolated(unsafe) private var lspSyncTask: Task<Void, Never>?
+    nonisolated(unsafe) private var lspFeatureTask: Task<Void, Never>?
+    nonisolated(unsafe) private var cancellables = Set<AnyCancellable>()
 
     override init() {
         super.init()
@@ -48,6 +54,15 @@ final class NibDocument: NSDocument {
             session.onFindReplaceAll = { [weak self] options in
                 self?.replaceAll(using: options)
             }
+            session.onRequestCompletions = { [weak self] in
+                self?.requestCompletions()
+            }
+            session.onInsertCompletion = { [weak self] item in
+                self?.insertCompletion(item)
+            }
+            session.onRequestHover = { [weak self] in
+                self?.requestHover()
+            }
             self.session = session
             self.registerCommands()
         }
@@ -77,12 +92,14 @@ final class NibDocument: NSDocument {
                 defer: false
             )
             window.titlebarAppearsTransparent = true
+            window.titlebarSeparatorStyle = .none
             window.contentViewController = hosting
             window.minSize = NSSize(width: 480, height: 320)
             window.center()
             window.setFrameAutosaveName("NibEditorWindow")
             self.addWindowController(NSWindowController(window: window))
             self.syncWindowChrome()
+            self.bindLanguageServer()
             self.refreshLanguageAndHighlight()
             if let byteCount = self.pendingLargeFileByteCount {
                 self.pendingLargeFileByteCount = nil
@@ -137,6 +154,8 @@ final class NibDocument: NSDocument {
     override func close() {
         MainActor.assumeIsolated {
             self.clearRecovery()
+            self.closeLanguageServerDocument()
+            self.cancellables.removeAll()
         }
         super.close()
     }
@@ -178,6 +197,7 @@ final class NibDocument: NSDocument {
             self.syncWindowChrome()
             self.scheduleRecoveryWrite()
             self.scheduleHighlight()
+            self.scheduleLanguageServerChange()
         }
     }
 
@@ -240,9 +260,28 @@ final class NibDocument: NSDocument {
                 shortcutLabel: "⌘F"
             )
         ) { [weak self] in
-            self?.session.isPalettePresented = false
-            self?.session.isGoToLinePresented = false
+            self?.session.dismissTransientOverlays()
             self?.session.isFindPresented = true
+        }
+        commands.register(
+            EditorCommand(
+                id: BuiltInCommandID.complete,
+                title: "Trigger Completions",
+                keywords: ["lsp", "suggest", "autocomplete"],
+                shortcutLabel: "⌃Space"
+            )
+        ) { [weak self] in
+            self?.requestCompletions()
+        }
+        commands.register(
+            EditorCommand(
+                id: BuiltInCommandID.hover,
+                title: "Show Hover",
+                keywords: ["lsp", "docs", "info"],
+                shortcutLabel: "⌥⌘."
+            )
+        ) { [weak self] in
+            self?.requestHover()
         }
         for language in LanguageDescriptor.priorityLanguages + [.plainText] {
             let id = "lang.\(language.id)"
@@ -399,6 +438,9 @@ final class NibDocument: NSDocument {
         session.language = detected
         session.languageOverrideID = languageOverrideID
         scheduleHighlight()
+        Task { @MainActor [weak self] in
+            await self?.syncLanguageServerDocument(forceReopen: true)
+        }
     }
 
     @MainActor
@@ -462,6 +504,183 @@ final class NibDocument: NSDocument {
             return "~" + path.dropFirst(home.count)
         }
         return path
+    }
+
+    @MainActor
+    private func bindLanguageServer() {
+        cancellables.removeAll()
+        let servers = AppComposition.shared.languageServers
+        session.lspStatus = servers.statusMessage
+        session.diagnostics = servers.diagnostics
+        servers.$statusMessage
+            .receive(on: RunLoop.main)
+            .sink { [weak self] status in
+                self?.session.lspStatus = status
+            }
+            .store(in: &cancellables)
+        servers.$diagnostics
+            .receive(on: RunLoop.main)
+            .sink { [weak self] diagnostics in
+                self?.session.diagnostics = diagnostics
+            }
+            .store(in: &cancellables)
+        servers.$generation
+            .dropFirst()
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                Task { @MainActor in
+                    await self?.syncLanguageServerDocument(forceReopen: true)
+                }
+            }
+            .store(in: &cancellables)
+        NotificationCenter.default.publisher(for: .nibEditorSettingsDidChange)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                Task { @MainActor in
+                    await self?.syncLanguageServerDocument(forceReopen: true)
+                }
+            }
+            .store(in: &cancellables)
+    }
+
+    @MainActor
+    private func lspDocumentIdentity() -> LSPDocumentIdentity {
+        let uri = fileURL
+            ?? URL(string: "untitled://\(recoveryID.uuidString)")!
+        return LSPDocumentIdentity(
+            uri: uri,
+            languageID: session.language.id,
+            version: lspVersion
+        )
+    }
+
+    @MainActor
+    private func syncLanguageServerDocument(forceReopen: Bool) async {
+        guard session.capabilities.languageServers else {
+            await closeLanguageServerDocumentAsync()
+            session.diagnostics = []
+            return
+        }
+        let client = AppComposition.shared.languageServer
+        let text = session.text
+        if forceReopen, lspIsOpen {
+            await client.closeDocument(lspDocumentIdentity())
+            lspIsOpen = false
+        }
+        lspVersion = max(lspVersion + 1, 1)
+        let identity = lspDocumentIdentity()
+        do {
+            if lspIsOpen {
+                try await client.applyChange(identity, text: text)
+            } else {
+                try await client.openDocument(identity, text: text)
+                lspIsOpen = true
+            }
+        } catch {
+            AppLog.lsp.error("document sync failed \(error.localizedDescription, privacy: .public)")
+        }
+    }
+
+    @MainActor
+    private func scheduleLanguageServerChange() {
+        guard session.capabilities.languageServers else { return }
+        lspSyncTask?.cancel()
+        lspSyncTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: 150_000_000)
+            guard Task.isCancelled == false else { return }
+            await self?.syncLanguageServerDocument(forceReopen: false)
+        }
+    }
+
+    @MainActor
+    private func closeLanguageServerDocument() {
+        lspSyncTask?.cancel()
+        lspFeatureTask?.cancel()
+        Task { @MainActor [weak self] in
+            await self?.closeLanguageServerDocumentAsync()
+        }
+    }
+
+    @MainActor
+    private func closeLanguageServerDocumentAsync() async {
+        guard lspIsOpen else { return }
+        let identity = lspDocumentIdentity()
+        lspIsOpen = false
+        await AppComposition.shared.languageServer.closeDocument(identity)
+    }
+
+    @MainActor
+    private func requestCompletions() {
+        guard session.capabilities.languageServers else {
+            session.completions = []
+            session.isCompletionPresented = true
+            return
+        }
+        session.dismissTransientOverlays()
+        let caret = session.caretUTF16
+        let text = session.text
+        let position = LineColumnParser.lspPosition(utf16Offset: caret, in: text)
+        lspFeatureTask?.cancel()
+        lspFeatureTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            await self.syncLanguageServerDocument(forceReopen: false)
+            do {
+                let items = try await AppComposition.shared.languageServer.completions(
+                    document: self.lspDocumentIdentity(),
+                    position: position
+                )
+                guard Task.isCancelled == false else { return }
+                self.session.completions = items
+                self.session.isCompletionPresented = true
+            } catch {
+                guard Task.isCancelled == false else { return }
+                self.session.completions = []
+                self.session.isCompletionPresented = true
+                AppLog.lsp.error("completion failed \(error.localizedDescription, privacy: .public)")
+            }
+        }
+    }
+
+    @MainActor
+    private func insertCompletion(_ item: CompletionItem) {
+        let caret = min(max(session.caretUTF16, 0), (session.text as NSString).length)
+        let ns = session.text as NSString
+        let inserted = item.insertText as NSString
+        let newText = ns.substring(to: caret) + item.insertText + ns.substring(from: caret)
+        session.applyFileText(newText)
+        handleTextEdit(newText)
+        session.pendingCaretUTF16 = caret + inserted.length
+        session.caretUTF16 = caret + inserted.length
+        session.isCompletionPresented = false
+        session.completions = []
+    }
+
+    @MainActor
+    private func requestHover() {
+        guard session.capabilities.languageServers else {
+            session.hoverText = nil
+            return
+        }
+        let caret = session.caretUTF16
+        let text = session.text
+        let position = LineColumnParser.lspPosition(utf16Offset: caret, in: text)
+        lspFeatureTask?.cancel()
+        lspFeatureTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            await self.syncLanguageServerDocument(forceReopen: false)
+            do {
+                let hover = try await AppComposition.shared.languageServer.hover(
+                    document: self.lspDocumentIdentity(),
+                    position: position
+                )
+                guard Task.isCancelled == false else { return }
+                self.session.hoverText = hover?.contents
+            } catch {
+                guard Task.isCancelled == false else { return }
+                self.session.hoverText = nil
+                AppLog.lsp.error("hover failed \(error.localizedDescription, privacy: .public)")
+            }
+        }
     }
 
     // NSDocument I/O overrides are nonisolated; keep these helpers callable there.

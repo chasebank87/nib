@@ -12,6 +12,7 @@ public struct EditorSettings: Equatable, Sendable, Codable {
     public var highlightCurrentLine: Bool
     public var showIndentGuides: Bool
     public var themeID: String?
+    public var enableDemoLanguageServer: Bool
 
     public init(
         fontName: String = EditorSettings.systemMonospaceName,
@@ -24,7 +25,8 @@ public struct EditorSettings: Equatable, Sendable, Codable {
         showLineNumbers: Bool = true,
         highlightCurrentLine: Bool = true,
         showIndentGuides: Bool = false,
-        themeID: String? = nil
+        themeID: String? = nil,
+        enableDemoLanguageServer: Bool = true
     ) {
         self.fontName = fontName
         self.fontSize = fontSize
@@ -37,6 +39,7 @@ public struct EditorSettings: Equatable, Sendable, Codable {
         self.highlightCurrentLine = highlightCurrentLine
         self.showIndentGuides = showIndentGuides
         self.themeID = themeID
+        self.enableDemoLanguageServer = enableDemoLanguageServer
     }
 
     public static let `default` = EditorSettings()
@@ -66,6 +69,8 @@ public struct EditorSettings: Equatable, Sendable, Codable {
         showIndentGuides = try container.decodeIfPresent(Bool.self, forKey: .showIndentGuides)
             ?? Self.default.showIndentGuides
         themeID = try container.decodeIfPresent(String.self, forKey: .themeID)
+        enableDemoLanguageServer = try container.decodeIfPresent(Bool.self, forKey: .enableDemoLanguageServer)
+            ?? Self.default.enableDemoLanguageServer
     }
 
     public func sanitized() -> EditorSettings {

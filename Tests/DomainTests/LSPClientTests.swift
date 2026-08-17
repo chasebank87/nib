@@ -1,0 +1,126 @@
+import Foundation
+import NibDomain
+import NibServices
+import Testing
+
+struct LSPJSONRPCTests {
+    @Test func framesRoundTripAndPartialBuffers() throws {
+        let message = Data(#"{"jsonrpc":"2.0","method":"initialized"}"#.utf8)
+        let framed = LSPJSONRPC.encode(message: message)
+        var buffer = framed
+        let decoded = try LSPJSONRPC.decode(buffer: &buffer)
+        #expect(decoded == [message])
+        #expect(buffer.isEmpty)
+
+        var partial = framed
+        let cut = partial.count / 2
+        var firstHalf = partial.subdata(in: 0..<cut)
+        let early = try LSPJSONRPC.decode(buffer: &firstHalf)
+        #expect(early.isEmpty)
+        firstHalf.append(partial.subdata(in: cut..<partial.count))
+        let complete = try LSPJSONRPC.decode(buffer: &firstHalf)
+        #expect(complete == [message])
+    }
+
+    @Test func rejectsMissingContentLength() {
+        var buffer = Data("Not-A-Header: 1\r\n\r\n{}".utf8)
+        #expect(throws: LSPClientError.invalidFrame) {
+            _ = try LSPJSONRPC.decode(buffer: &buffer)
+        }
+    }
+}
+
+struct FakeLSPIntegrationTests {
+    @Test func openChangeCloseAndCancelReachFakeServer() async throws {
+        let pair = await DemoLanguageServerFactory.make()
+        let serverTask = Task { await pair.server.run() }
+        defer {
+            serverTask.cancel()
+        }
+
+        try await pair.client.start()
+        let uri = URL(fileURLWithPath: "/tmp/demo.py")
+        let identity = LSPDocumentIdentity(uri: uri, languageID: "python", version: 1)
+        try await pair.client.openDocument(identity, text: "print()\n")
+        try await pair.client.applyChange(
+            LSPDocumentIdentity(uri: uri, languageID: "python", version: 2),
+            text: "print('hi')\n"
+        )
+
+        // Start a completion then cancel outstanding requests.
+        let completionTask = Task {
+            try await pair.client.completions(
+                document: LSPDocumentIdentity(uri: uri, languageID: "python", version: 2),
+                position: LSPPosition(line: 0, character: 1)
+            )
+        }
+        await pair.client.cancelAll()
+        do {
+            _ = try await completionTask.value
+        } catch LSPClientError.cancelled {
+            // Expected when cancel wins the race.
+        } catch {
+            // Completion may also finish before cancel; either outcome is fine.
+        }
+
+        await pair.client.closeDocument(identity)
+        await pair.client.stop()
+        await pair.server.stop()
+
+        let opened = await pair.server.openedURIs
+        let changed = await pair.server.changedURIs
+        let closed = await pair.server.closedURIs
+        #expect(opened.contains(uri.absoluteString))
+        #expect(changed.contains(uri.absoluteString))
+        #expect(closed.contains(uri.absoluteString))
+    }
+
+    @Test func completionsHoverAndDiagnosticsMapFromFakeServer() async throws {
+        let pair = await DemoLanguageServerFactory.make()
+        let serverTask = Task { await pair.server.run() }
+        defer {
+            serverTask.cancel()
+        }
+
+        try await pair.client.start()
+        let uri = URL(fileURLWithPath: "/tmp/hover.py")
+        let identity = LSPDocumentIdentity(uri: uri, languageID: "python", version: 1)
+
+        var diagnostics: [Diagnostic] = []
+        let diagnosticsTask = Task {
+            for await update in pair.client.diagnosticsUpdates {
+                diagnostics = update
+                break
+            }
+        }
+
+        try await pair.client.openDocument(identity, text: "p")
+        _ = await diagnosticsTask.value
+        #expect(diagnostics.isEmpty == false)
+        #expect(diagnostics.first?.message.contains("Demo diagnostic") == true)
+
+        let completions = try await pair.client.completions(
+            document: identity,
+            position: LSPPosition(line: 0, character: 1)
+        )
+        #expect(completions.contains(where: { $0.label == "print" }))
+
+        let hover = try await pair.client.hover(
+            document: identity,
+            position: LSPPosition(line: 0, character: 0)
+        )
+        #expect(hover?.contents == "demo hover")
+
+        await pair.client.stop()
+        await pair.server.stop()
+    }
+}
+
+struct LSPPositionTests {
+    @Test func lspPositionUsesZeroBasedUTF16Offsets() {
+        let text = "ab\ncd"
+        let position = LineColumnParser.lspPosition(utf16Offset: 4, in: text)
+        #expect(position.line == 1)
+        #expect(position.character == 1)
+    }
+}

@@ -61,7 +61,7 @@ Shipped themes + user theme JSON from Application Support, Tree-sitter highlight
 
 ### Phase 3 — LSP and IDE capabilities
 
-Document-centric LSP: diagnostics, completion, hover, definition, references, rename, code actions, document symbols, formatting, semantic tokens when available. Useful with zero servers configured.
+Document-centric LSP with a built-in demo FakeLSP (diagnostics, completion, hover). Real server install/config, definition/references/rename, and formatting follow. Useful with the demo off (editing continues).
 
 ### Phase 4 — AI selection actions
 

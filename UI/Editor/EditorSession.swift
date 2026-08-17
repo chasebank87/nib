@@ -14,6 +14,8 @@ public final class EditorSession: ObservableObject {
     @Published public var isPalettePresented: Bool
     @Published public var isGoToLinePresented: Bool
     @Published public var isFindPresented: Bool
+    @Published public var isCompletionPresented: Bool
+    @Published public var caretUTF16: Int
     @Published public var pendingCaretUTF16: Int?
     @Published public var pendingSelectionUTF16: Range<Int>?
     @Published public var reducedFeatureMessage: String?
@@ -26,6 +28,10 @@ public final class EditorSession: ObservableObject {
     @Published public var findOptions: FindOptions
     @Published public var findMatches: [Range<Int>]
     @Published public var findStatus: String?
+    @Published public var diagnostics: [Diagnostic]
+    @Published public var completions: [CompletionItem]
+    @Published public var hoverText: String?
+    @Published public var lspStatus: String
 
     public let commands = CommandRegistry()
 
@@ -36,6 +42,9 @@ public final class EditorSession: ObservableObject {
     public var onOpenURLs: ([URL]) -> Void
     public var onLanguageOverride: (String?) -> Void
     public var onFindReplaceAll: (FindOptions) -> Void
+    public var onRequestCompletions: () -> Void
+    public var onInsertCompletion: (CompletionItem) -> Void
+    public var onRequestHover: () -> Void
 
     private var isApplyingFileText = false
 
@@ -54,12 +63,17 @@ public final class EditorSession: ObservableObject {
         onTextChange: @escaping (String) -> Void = { _ in },
         onOpenURLs: @escaping ([URL]) -> Void = { _ in },
         onLanguageOverride: @escaping (String?) -> Void = { _ in },
-        onFindReplaceAll: @escaping (FindOptions) -> Void = { _ in }
+        onFindReplaceAll: @escaping (FindOptions) -> Void = { _ in },
+        onRequestCompletions: @escaping () -> Void = {},
+        onInsertCompletion: @escaping (CompletionItem) -> Void = { _ in },
+        onRequestHover: @escaping () -> Void = {}
     ) {
         self.text = text
         self.isPalettePresented = isPalettePresented
         self.isGoToLinePresented = isGoToLinePresented
         self.isFindPresented = isFindPresented
+        self.isCompletionPresented = false
+        self.caretUTF16 = 0
         self.settings = settings
         self.theme = theme
         self.language = language
@@ -67,6 +81,9 @@ public final class EditorSession: ObservableObject {
         self.syntaxCaptures = []
         self.findOptions = FindOptions()
         self.findMatches = []
+        self.diagnostics = []
+        self.completions = []
+        self.lspStatus = "LSP off"
         self.onOpen = onOpen
         self.onSave = onSave
         self.onSaveAs = onSaveAs
@@ -74,6 +91,9 @@ public final class EditorSession: ObservableObject {
         self.onOpenURLs = onOpenURLs
         self.onLanguageOverride = onLanguageOverride
         self.onFindReplaceAll = onFindReplaceAll
+        self.onRequestHover = onRequestHover
+        self.onRequestCompletions = onRequestCompletions
+        self.onInsertCompletion = onInsertCompletion
     }
 
     public func applyFileText(_ value: String) {
@@ -98,6 +118,14 @@ public final class EditorSession: ObservableObject {
         let clamped = LineColumnParser.clamp(target, in: text)
         pendingCaretUTF16 = LineColumnParser.utf16Offset(of: clamped, in: text)
         isGoToLinePresented = false
+    }
+
+    public func dismissTransientOverlays() {
+        isPalettePresented = false
+        isGoToLinePresented = false
+        isFindPresented = false
+        isCompletionPresented = false
+        hoverText = nil
     }
 
     public func runFind() {

@@ -44,6 +44,14 @@ struct NibApp: App {
                     NotificationCenter.default.post(name: .nibFind, object: nil)
                 }
                 .keyboardShortcut("f", modifiers: .command)
+                Button("Trigger Completions") {
+                    NotificationCenter.default.post(name: .nibComplete, object: nil)
+                }
+                .keyboardShortcut(" ", modifiers: .control)
+                Button("Show Hover") {
+                    NotificationCenter.default.post(name: .nibHover, object: nil)
+                }
+                .keyboardShortcut(".", modifiers: [.command, .option])
             }
             CommandMenu("View") {
                 Button("Command Palette") {

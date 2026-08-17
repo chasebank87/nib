@@ -54,6 +54,21 @@ public enum LineColumnParser {
         return offset
     }
 
+    /// LSP uses 0-based line/character UTF-16 offsets.
+    public static func lspPosition(utf16Offset: Int, in text: String) -> LSPPosition {
+        let ns = text as NSString
+        let clamped = min(max(utf16Offset, 0), ns.length)
+        var line = 0
+        var lastLineStart = 0
+        for index in 0..<clamped {
+            if ns.character(at: index) == 10 { // \n
+                line += 1
+                lastLineStart = index + 1
+            }
+        }
+        return LSPPosition(line: line, character: clamped - lastLineStart)
+    }
+
     public static func lineCount(in text: String) -> Int {
         lines(in: text).count
     }

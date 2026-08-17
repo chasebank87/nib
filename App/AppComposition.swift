@@ -11,17 +11,19 @@ final class AppComposition: ObservableObject {
     let appearance: AppearanceController
     let editorSettings: EditorSettingsController
     let recovery: DocumentRecoveryStoring
-    let languageServer: LanguageServerClienting
+    let languageServers: LanguageServerController
     let secrets: SecretStoring
     let aiProvider: AIProvider
     let languageDetector: LanguageDetecting
     let syntaxHighlighter: SyntaxHighlighting
     let themeCatalog: ThemeCatalog
 
+    private var settingsObservation: AnyCancellable?
+
     init(
         settings: SettingsStoring = UserDefaultsSettingsStore(),
         appearanceApplier: AppearanceApplying = AppKitAppearanceApplier(),
-        languageServer: LanguageServerClienting = UnconfiguredLanguageServer(),
+        languageServers: LanguageServerController? = nil,
         secrets: SecretStoring = InMemorySecretStore(),
         aiProvider: AIProvider = UnconfiguredAIProvider.instance,
         recovery: DocumentRecoveryStoring? = nil,
@@ -30,7 +32,7 @@ final class AppComposition: ObservableObject {
         themeCatalog: ThemeCatalog? = nil
     ) {
         self.settings = settings
-        self.languageServer = languageServer
+        self.languageServers = languageServers ?? LanguageServerController()
         self.secrets = secrets
         self.aiProvider = aiProvider
         self.languageDetector = languageDetector
@@ -58,6 +60,24 @@ final class AppComposition: ObservableObject {
             applier: appearanceApplier
         )
         appearance.apply()
+
+        let servers = self.languageServers
+        let initialSettings = editorSettings.settings
+        settingsObservation = editorSettings.$settings
+            .dropFirst()
+            .sink { settings in
+                Task { @MainActor in
+                    await servers.applySettings(settings)
+                }
+            }
+        Task { @MainActor in
+            await servers.applySettings(initialSettings)
+        }
+    }
+
+    /// Active LSP client (demo FakeLSP or unconfigured no-op).
+    var languageServer: LanguageServerClienting {
+        languageServers.client
     }
 
     func resolvedTheme() -> Theme {
