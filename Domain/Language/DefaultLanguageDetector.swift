@@ -54,13 +54,17 @@ public struct DefaultLanguageDetector: LanguageDetecting {
 
         let checks: [(id: String, pattern: String)] = [
             ("dockerfile", "(?m)^(?i:FROM)\\s+\\S+"),
-            ("python", "(?m)^\\s*(async\\s+def|def|class|from\\s+\\w+(\\.\\w+)*\\s+import|import\\s+\\w+)\\b"),
             ("swift", "(?m)^\\s*(import\\s+\\w+|@main|func\\s+\\w+|struct\\s+\\w+|class\\s+\\w+|enum\\s+\\w+)\\b"),
             ("zig", "(?m)^\\s*(const\\s+\\w+\\s*=\\s*@import|pub\\s+fn\\s+\\w+|fn\\s+\\w+)\\b"),
             ("typescript", "(?m)^\\s*(import\\s+type\\s+|export\\s+(type|interface|default)|interface\\s+\\w+|type\\s+\\w+\\s*=)"),
             (
                 "javascript",
                 "(?m)^\\s*(import\\s+.+from\\s+|export\\s+(default\\s+)?(function|class|const|let|var)|const\\s+\\w+\\s*=\\s*require\\()"
+            ),
+            // Prefer def/from-import/class-colon so bare `import Foo` does not steal Swift.
+            (
+                "python",
+                "(?m)^\\s*(async\\s+def\\s+\\w+|def\\s+\\w+|class\\s+\\w+\\s*:|from\\s+\\w+(\\.\\w+)*\\s+import\\s+)"
             ),
             ("json", "^\\s*[\\{\\[]"),
             ("yaml", "(?m)^---\\s*$|^\\w[\\w-]*:\\s"),
