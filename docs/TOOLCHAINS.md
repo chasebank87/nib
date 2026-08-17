@@ -53,11 +53,20 @@ sudo xcodebuild -license accept
 xcodebuild -version
 ```
 
-If Xcode is installed but you do not want to change `xcode-select` yet:
+If `xcodebuild` fails with `CoreSimulator` / `IDESimulatorFoundation` / `runFirstLaunch`, Xcode has not installed its extra system components yet:
 
 ```bash
-make project
-open Nib.xcodeproj
+sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+sudo xcodebuild -license accept
+sudo xcodebuild -runFirstLaunch
+```
+
+Or open **Xcode.app** once and wait until it finishes installing additional components. Then `make build` again.
+
+To skip the CLI and build in the IDE:
+
+```bash
+make open
 ```
 
 This repository’s Linux/cloud agents typically **do not** have Xcode. Do not treat a missing `swift` binary as a project failure.

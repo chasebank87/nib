@@ -91,7 +91,10 @@ make setup
 ```bash
 sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
 sudo xcodebuild -license accept
+sudo xcodebuild -runFirstLaunch
 ```
+
+If `xcodebuild` still complains about `CoreSimulator`, open Xcode.app once and let additional components finish, or use `make open` and run from the IDE.
 
 This cloud/Linux checkout **cannot** compile the macOS app. Zig unit tests can run anywhere Zig is installed. Swift package tests (`make test`) can run with Command Line Tools; `xcodebuild` requires Xcode.
 
@@ -112,8 +115,12 @@ make test
 brew install xcodegen   # once
 make build
 
-# Build and launch
+# Build and launch (needs full Xcode + first-launch components)
+make build
 make run
+
+# Or generate the project and run from the Xcode UI
+make open
 
 # Format / lint (requires SwiftFormat, SwiftLint, zig)
 make format

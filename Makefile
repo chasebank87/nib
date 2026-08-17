@@ -7,7 +7,7 @@ CONFIGURATION ?= Debug
 DERIVED_DATA ?= $(CURDIR)/.derivedData
 ZIG_LIB_DIR := $(CURDIR)/ZigCore/zig-out/lib
 
-.PHONY: help setup check-zig check-xcodegen check-xcodebuild zig test-zig test-swift test project build run format lint bench
+.PHONY: help setup check-zig check-xcodegen check-xcodebuild check-xcode-first-launch zig test-zig test-swift test project build run open format lint bench
 
 help:
 	@echo "nib targets:"
@@ -19,6 +19,7 @@ help:
 	@echo "  make project     Generate Nib.xcodeproj (requires XcodeGen)"
 	@echo "  make build       Generate Xcode project and build the app"
 	@echo "  make run         Build and launch nib.app"
+	@echo "  make open        Generate Nib.xcodeproj and open it in Xcode"
 	@echo "  make format      zig fmt + SwiftFormat"
 	@echo "  make lint        SwiftLint + zig fmt --check"
 	@echo "  make bench       Placeholder until NIB-017"
@@ -65,7 +66,16 @@ check-xcodebuild:
 		exit 1; \
 	}
 
-setup: check-zig check-xcodegen check-xcodebuild
+check-xcode-first-launch: check-xcodebuild
+	@if [ ! -d /Library/Developer/PrivateFrameworks/CoreSimulator.framework ]; then \
+		echo "error: Xcode additional components are missing (CoreSimulator)."; \
+		echo "       sudo xcodebuild -runFirstLaunch"; \
+		echo "       or open Xcode.app once and wait until extra components finish."; \
+		echo "       GUI workaround (no CLI build): make open"; \
+		exit 1; \
+	fi
+
+setup: check-zig check-xcodegen check-xcodebuild check-xcode-first-launch
 	@echo "zig        $$($(ZIG) version)"
 	@echo "xcodegen   $$($(XCODEGEN) version 2>/dev/null || echo installed)"
 	@echo "xcodebuild $$(xcodebuild -version | head -n 1)"
@@ -87,7 +97,7 @@ test: test-zig test-swift
 project: check-xcodegen
 	$(XCODEGEN) generate
 
-build: zig check-xcodegen check-xcodebuild
+build: zig check-xcodegen check-xcode-first-launch
 	$(XCODEGEN) generate
 	xcodebuild \
 		-project Nib.xcodeproj \
@@ -100,6 +110,9 @@ build: zig check-xcodegen check-xcodebuild
 
 run: build
 	open "$(DERIVED_DATA)/Build/Products/$(CONFIGURATION)/nib.app"
+
+open: zig project
+	open Nib.xcodeproj
 
 format:
 	$(ZIG) fmt ZigCore/build.zig ZigCore/src
