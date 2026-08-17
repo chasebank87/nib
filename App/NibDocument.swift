@@ -75,30 +75,32 @@ final class NibDocument: NSDocument {
         let decoded = try codec.decode(data)
         model = decoded
         session.applyFileText(decoded.text)
-        syncWindowChrome()
+        MainActor.assumeIsolated { self.syncWindowChrome() }
     }
 
     override func write(to url: URL, ofType typeName: String) throws {
         try super.write(to: url, ofType: typeName)
         model.text = session.text
         model.markSaved()
-        syncWindowChrome()
+        MainActor.assumeIsolated { self.syncWindowChrome() }
     }
 
     private func handleTextEdit(_ newValue: String) {
         guard model.text != newValue else { return }
         model.replaceText(newValue)
         updateChangeCount(.changeDone)
-        syncWindowChrome()
+        MainActor.assumeIsolated { self.syncWindowChrome() }
     }
 
-    nonisolated private func syncWindowChrome() {
+    @MainActor
+    private func syncWindowChrome() {
         for controller in windowControllers {
             controller.window?.subtitle = abbreviatedPath
         }
     }
 
-    nonisolated private var abbreviatedPath: String {
+    @MainActor
+    private var abbreviatedPath: String {
         guard let path = fileURL?.path else { return "" }
         let home = NSHomeDirectory()
         if path.hasPrefix(home) {
