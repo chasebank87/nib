@@ -51,11 +51,11 @@ public struct TreeSitterHighlighter: SyntaxHighlighting, @unchecked Sendable {
     private static func languagePointer(for languageID: String) -> OpaquePointer? {
         switch languageID {
         case "json":
-            return tree_sitter_json().map { OpaquePointer($0) }
+            return tree_sitter_json()
         case "python":
-            return tree_sitter_python().map { OpaquePointer($0) }
+            return tree_sitter_python()
         case "markdown":
-            return tree_sitter_markdown().map { OpaquePointer($0) }
+            return tree_sitter_markdown()
         default:
             return nil
         }
@@ -71,7 +71,7 @@ public struct TreeSitterHighlighter: SyntaxHighlighting, @unchecked Sendable {
         }
         defer { ts_parser_delete(parser) }
 
-        guard ts_parser_set_language(parser, UnsafePointer(language)) else {
+        guard ts_parser_set_language(parser, language) else {
             throw SyntaxHighlightError.queryFailed("set language")
         }
 
@@ -88,7 +88,7 @@ public struct TreeSitterHighlighter: SyntaxHighlighting, @unchecked Sendable {
         var errorType = TSQueryErrorNone
         let query = querySource.withCString { pointer in
             ts_query_new(
-                UnsafePointer(language),
+                language,
                 pointer,
                 UInt32(querySource.utf8.count),
                 &errorOffset,
@@ -96,7 +96,7 @@ public struct TreeSitterHighlighter: SyntaxHighlighting, @unchecked Sendable {
             )
         }
         guard let query else {
-            throw SyntaxHighlightError.queryFailed("query error \(errorType.rawValue) at \(errorOffset)")
+            throw SyntaxHighlightError.queryFailed("query error \(Int(errorType.rawValue)) at \(errorOffset)")
         }
         defer { ts_query_delete(query) }
 
