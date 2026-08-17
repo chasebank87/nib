@@ -7,7 +7,7 @@ import SwiftUI
 @objc(NibDocument)
 final class NibDocument: NSDocument {
     private let codec = UTF8DocumentCodec()
-    private let recoveryID = UUID()
+    nonisolated(unsafe) private let recoveryID = UUID()
     /// NSDocument callbacks run on the main thread; isolation is not reflected in the AppKit overrides.
     nonisolated(unsafe) private var model = TextDocumentModel()
     nonisolated(unsafe) private var session: EditorSession!
