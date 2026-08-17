@@ -553,20 +553,30 @@ final class NibDocument: NSDocument {
             return
         }
         let servers = AppComposition.shared.languageServers
-        await servers.activate(for: session.language.id)
-        let client = servers.client
-        let text = session.text
-        if forceReopen, lspIsOpen {
-            await client.closeDocument(lspDocumentIdentity())
-            lspIsOpen = false
+        let languageID = session.language.id
+
+        if forceReopen {
+            await closeLanguageServerDocumentAsync()
+            await servers.activate(for: languageID)
+            lspVersion = max(lspVersion + 1, 1)
+            let identity = lspDocumentIdentity()
+            do {
+                try await servers.client.openDocument(identity, text: session.text)
+                lspIsOpen = true
+            } catch {
+                AppLog.lsp.error("document open failed \(error.localizedDescription, privacy: .public)")
+            }
+            return
         }
+
+        await servers.activate(for: languageID)
         lspVersion = max(lspVersion + 1, 1)
         let identity = lspDocumentIdentity()
         do {
             if lspIsOpen {
-                try await client.applyChange(identity, text: text)
+                try await servers.client.applyChange(identity, text: session.text)
             } else {
-                try await client.openDocument(identity, text: text)
+                try await servers.client.openDocument(identity, text: session.text)
                 lspIsOpen = true
             }
         } catch {
