@@ -4,22 +4,25 @@ import NibServices
 import NibUI
 import SwiftUI
 
-@MainActor
 @objc(NibDocument)
 final class NibDocument: NSDocument {
-    let session = EditorSession()
-
     private let codec = UTF8DocumentCodec()
     private var model = TextDocumentModel()
+    private var session: EditorSession!
 
     override init() {
         super.init()
         hasUndoManager = true
-        session.onOpen = { NSDocumentController.shared.openDocument(nil) }
-        session.onSave = { [weak self] in self?.save(nil) }
-        session.onSaveAs = { [weak self] in self?.saveAs(nil) }
-        session.onTextChange = { [weak self] newValue in
-            self?.handleTextEdit(newValue)
+        // NSDocument is created on the main thread.
+        MainActor.assumeIsolated {
+            let session = EditorSession()
+            session.onOpen = { NSDocumentController.shared.openDocument(nil) }
+            session.onSave = { [weak self] in self?.save(nil) }
+            session.onSaveAs = { [weak self] in self?.saveAs(nil) }
+            session.onTextChange = { [weak self] newValue in
+                self?.handleTextEdit(newValue)
+            }
+            self.session = session
         }
     }
 
@@ -29,30 +32,32 @@ final class NibDocument: NSDocument {
     }
 
     override func makeWindowControllers() {
-        let composition = AppComposition.shared
-        let root = EditorShellView(
-            session: session,
-            theme: composition.resolvedTheme(),
-            resolveTheme: { composition.resolvedTheme() },
-            onToggleAppearance: {
-                composition.appearance.cycle()
-                NotificationCenter.default.post(name: .nibAppearanceDidChange, object: nil)
-            }
-        )
-        let hosting = NSHostingController(rootView: root)
-        let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 920, height: 640),
-            styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
-            backing: .buffered,
-            defer: false
-        )
-        window.titlebarAppearsTransparent = true
-        window.contentViewController = hosting
-        window.minSize = NSSize(width: 480, height: 320)
-        window.center()
-        window.setFrameAutosaveName("NibEditorWindow")
-        addWindowController(NSWindowController(window: window))
-        syncWindowChrome()
+        MainActor.assumeIsolated {
+            let composition = AppComposition.shared
+            let root = EditorShellView(
+                session: self.session,
+                theme: composition.resolvedTheme(),
+                resolveTheme: { composition.resolvedTheme() },
+                onToggleAppearance: {
+                    composition.appearance.cycle()
+                    NotificationCenter.default.post(name: .nibAppearanceDidChange, object: nil)
+                }
+            )
+            let hosting = NSHostingController(rootView: root)
+            let window = NSWindow(
+                contentRect: NSRect(x: 0, y: 0, width: 920, height: 640),
+                styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
+                backing: .buffered,
+                defer: false
+            )
+            window.titlebarAppearsTransparent = true
+            window.contentViewController = hosting
+            window.minSize = NSSize(width: 480, height: 320)
+            window.center()
+            window.setFrameAutosaveName("NibEditorWindow")
+            self.addWindowController(NSWindowController(window: window))
+            self.syncWindowChrome()
+        }
     }
 
     override func data(ofType typeName: String) throws -> Data {
@@ -60,22 +65,27 @@ final class NibDocument: NSDocument {
             throw DocumentError.emptyTypeName
         }
         var snapshot = model
-        snapshot.text = session.text
+        snapshot.text = MainActor.assumeIsolated { session.text }
         return try codec.encode(snapshot)
     }
 
     override func read(from data: Data, ofType typeName: String) throws {
         _ = typeName
-        model = try codec.decode(data)
-        session.applyFileText(model.text)
-        syncWindowChrome()
+        let decoded = try codec.decode(data)
+        model = decoded
+        MainActor.assumeIsolated {
+            self.session.applyFileText(decoded.text)
+            self.syncWindowChrome()
+        }
     }
 
     override func write(to url: URL, ofType typeName: String) throws {
         try super.write(to: url, ofType: typeName)
-        model.text = session.text
-        model.markSaved()
-        syncWindowChrome()
+        MainActor.assumeIsolated {
+            self.model.text = self.session.text
+            self.model.markSaved()
+            self.syncWindowChrome()
+        }
     }
 
     private func handleTextEdit(_ newValue: String) {
