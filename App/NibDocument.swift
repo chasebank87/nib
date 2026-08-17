@@ -232,8 +232,22 @@ final class NibDocument: NSDocument {
                 return
             }
             await self.formatBeforeSaveIfEnabled()
-            super.save(to: url, ofType: typeName, for: saveOperation, completionHandler: completionHandler)
+            self.finishSave(
+                to: url,
+                ofType: typeName,
+                for: saveOperation,
+                completionHandler: completionHandler
+            )
         }
+    }
+
+    private func finishSave(
+        to url: URL,
+        ofType typeName: String,
+        for saveOperation: NSDocument.SaveOperationType,
+        completionHandler: @escaping (Error?) -> Void
+    ) {
+        super.save(to: url, ofType: typeName, for: saveOperation, completionHandler: completionHandler)
     }
 
     override func close() {
