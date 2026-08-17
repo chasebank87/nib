@@ -1,6 +1,7 @@
 import Combine
 import NibDomain
 
+@MainActor
 public protocol AppearanceApplying: AnyObject {
     func apply(_ preference: AppearancePreference)
 }
