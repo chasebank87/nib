@@ -6,13 +6,16 @@ SWIFTLINT ?= swiftlint
 CONFIGURATION ?= Debug
 DERIVED_DATA ?= $(CURDIR)/.derivedData
 ZIG_LIB_DIR := $(CURDIR)/ZigCore/zig-out/lib
+# Pin arch so xcodebuild does not warn about arm64 vs x86_64 destinations.
+DESTINATION ?= platform=macOS,arch=$(shell uname -m)
+REPACK_ARCHIVE := $(CURDIR)/ZigCore/scripts/repack-archive-for-apple-ld.sh
 
 .PHONY: help setup check-zig check-xcodegen check-xcodebuild check-xcode-first-launch zig test-zig test-swift test project build run open format lint bench
 
 help:
 	@echo "nib targets:"
 	@echo "  make setup       Check for zig, XcodeGen, and xcodebuild"
-	@echo "  make zig         Build libnib_core"
+	@echo "  make zig         Build libnib_core (repacks for Apple ld on macOS)"
 	@echo "  make test-zig    Run Zig unit tests"
 	@echo "  make test-swift  Run Swift package tests (macOS, requires Zig; no XcodeGen)"
 	@echo "  make test        test-zig + test-swift"
@@ -83,6 +86,7 @@ setup: check-zig check-xcodegen check-xcodebuild check-xcode-first-launch
 
 zig:
 	cd ZigCore && $(ZIG) build -Doptimize=ReleaseSafe
+	$(REPACK_ARCHIVE) $(ZIG_LIB_DIR)/libnib_core.a
 
 test-zig:
 	cd ZigCore && $(ZIG) build test --summary all
@@ -103,7 +107,7 @@ build: zig check-xcodegen check-xcode-first-launch
 		-project Nib.xcodeproj \
 		-scheme Nib \
 		-configuration $(CONFIGURATION) \
-		-destination 'platform=macOS' \
+		-destination '$(DESTINATION)' \
 		-derivedDataPath "$(DERIVED_DATA)" \
 		CODE_SIGNING_ALLOWED=NO \
 		build

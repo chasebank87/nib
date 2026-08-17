@@ -52,6 +52,8 @@ Decisions are listed oldest-first. Status is `accepted` unless noted. Revisit wh
 
 **Rules.** Caller-owned input buffers; integer error codes; UTF-8 only; serialized calls until thread safety is documented; FFI tests independent of the GUI.
 
+**Apple ld.** On macOS, `zig build` plus `make zig` repack `libnib_core.a` with `xcrun libtool -static` so Apple `ld` accepts the archive. Do not skip that step and link Zig’s raw `llvm-ar` output.
+
 ## ADR-004 — Syntax highlighting and parsing
 
 **Context.** Highlighting must be incremental, language-extensible, and useful without LSP.

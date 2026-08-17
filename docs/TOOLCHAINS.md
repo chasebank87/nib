@@ -80,10 +80,18 @@ brew install xcodegen
 make setup
 make zig
 xcodegen generate
-xcodebuild -scheme Nib -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO build
+xcodebuild -scheme Nib -destination "platform=macOS,arch=$(uname -m)" CODE_SIGNING_ALLOWED=NO build
 ```
 
 Or `make build` / `make run`. If `make build` prints `xcodegen: No such file or directory`, install XcodeGen and retry.
+
+`make zig` (and therefore `make test` / `make build`) repacks `ZigCore/zig-out/lib/libnib_core.a` with Apple `libtool` on macOS. Zig’s `llvm-ar` writes Mach-O archive members that are not 8-byte aligned; Apple `ld` in Xcode 16.4+ (including Xcode 26) rejects them:
+
+```
+ld: 64-bit mach-o member 'libnib_core_zcu.o' not 8-byte aligned in '.../libnib_core.a'
+```
+
+Zig’s own tests do not use Apple `ld`, so they can pass while `swift test` and `xcodebuild` still fail until the archive is repacked. You do not need to run `libtool` yourself; `make zig` does it.
 
 ## CI
 
